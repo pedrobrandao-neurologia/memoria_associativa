@@ -14,11 +14,14 @@
             background-color: #f0f2f5;
         }
         .card {
-            transition: all 0.3s ease-in-out;
+            transition: transform 0.4s ease-in-out;
             transform-style: preserve-3d;
+            /* BUG FIX: Apply base transform here to ensure it's always present */
+            transform: translate(-50%, -50%);
         }
         .card.is-flipped {
-            transform: rotateY(180deg);
+            /* BUG FIX: Combine the positioning and rotation transforms */
+            transform: translate(-50%, -50%) rotateY(180deg);
         }
         .card-face {
             -webkit-backface-visibility: hidden;
@@ -253,7 +256,7 @@
             this.ui.resultsScreen.classList.add('hidden');
             this.ui.testScreen.classList.remove('hidden');
 
-            // BUG FIX: Defer grid setup until the browser has painted the test screen.
+            // Defer grid setup until the browser has painted the test screen.
             requestAnimationFrame(() => {
                 this.setupGrid();
                 this.runStage();
@@ -277,10 +280,9 @@
                 const y = center.y + radius * Math.sin(angle);
                 const card = document.createElement('div');
                 card.className = 'card absolute w-24 h-24 cursor-pointer';
-                // Center the card on the calculated (x, y) point
                 card.style.left = `${x}px`;
                 card.style.top = `${y}px`;
-                card.style.transform = 'translate(-50%, -50%)';
+                // BUG FIX: Removed transform from here, it's now handled by CSS.
                 card.dataset.id = i;
                 card.innerHTML = `
                     <div class="card-face w-full h-full rounded-lg bg-white shadow-md border-2 border-gray-300"></div>
