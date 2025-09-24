@@ -11,16 +11,15 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f0f2f5;
+            background-color: #000000;
+            color: #f0f2f5;
         }
         .card {
             transition: transform 0.4s ease-in-out;
             transform-style: preserve-3d;
-            /* BUG FIX: Apply base transform here to ensure it's always present */
             transform: translate(-50%, -50%);
         }
         .card.is-flipped {
-            /* BUG FIX: Combine the positioning and rotation transforms */
             transform: translate(-50%, -50%) rotateY(180deg);
         }
         .card-face {
@@ -32,7 +31,12 @@
         }
         .card-face-back {
             transform: rotateY(180deg);
-            padding: 8px; /* Add padding for SVGs */
+            padding: 8px;
+        }
+        /* Style for the back of the card when revealed */
+        .card.is-flipped .card-face-back {
+            background-color: #000000;
+            border: 2px solid #FFFFFF;
         }
         .shake {
             animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
@@ -47,9 +51,9 @@
             animation: pulse-success 0.5s ease-in-out;
         }
         @keyframes pulse-success {
-            0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
         }
         .export-btn {
             padding: 0.5rem 1rem;
@@ -65,20 +69,20 @@
     <div id="app" class="w-full max-w-4xl mx-auto p-4 md:p-8">
         
         <!-- Tela de Início -->
-        <div id="start-screen" class="bg-white rounded-xl shadow-lg p-8 text-center">
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">Teste de Memória Associativa (PAL)</h1>
-            <p class="text-gray-600 mb-6">Este teste avalia a sua capacidade de aprender e recordar a localização de padrões.</p>
+        <div id="start-screen" class="bg-gray-900 rounded-xl shadow-lg p-8 text-center border border-gray-700">
+            <h1 class="text-3xl font-bold text-white mb-2">Teste de Memória Associativa (PAL)</h1>
+            <p class="text-gray-400 mb-6">Este teste avalia a sua capacidade de aprender e recordar a localização de padrões.</p>
             <div class="max-w-md mx-auto mb-6">
-                <label for="subject-id" class="block text-sm font-medium text-gray-700 mb-1">ID do Sujeito</label>
-                <input type="text" id="subject-id" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Insira o ID do sujeito aqui">
+                <label for="subject-id" class="block text-sm font-medium text-gray-300 mb-1">ID do Sujeito</label>
+                <input type="text" id="subject-id" class="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white" placeholder="Insira o ID do sujeito aqui">
             </div>
-            <div class="text-left max-w-2xl mx-auto space-y-3 text-gray-700 mb-8">
+            <div class="text-left max-w-2xl mx-auto space-y-3 text-gray-300 mb-8">
                 <p><strong>Instruções:</strong></p>
                 <p>1. No início de cada fase, caixas na tela se abrirão uma a uma para revelar um padrão em seu interior.</p>
                 <p>2. Tente memorizar qual padrão pertence a qual caixa.</p>
                 <p>3. Após todos os padrões terem sido mostrados, um padrão aparecerá no centro da tela.</p>
-                <p>4. A sua tarefa é clicar na caixa onde viu esse padrão. Se errar, pode tentar novamente.</p>
-                 <p>5. Se errar alguma localização na primeira tentativa, a sequência será mostrada novamente.</p>
+                <p>4. A sua tarefa é clicar na caixa onde viu esse padrão. Se errar, pode tentar novamente (até 2 vezes por item).</p>
+                 <p>5. Se cometer qualquer erro em uma fase, a sequência inteira será mostrada novamente para uma nova tentativa (máximo de 4 tentativas por fase).</p>
             </div>
             <button id="start-btn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition-colors text-lg">
                 Iniciar Teste
@@ -91,40 +95,40 @@
                 <div class="relative w-full aspect-square">
                     <div id="grid-container" class="absolute inset-0"></div>
                     <div id="recall-stimulus-container" class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div id="recall-stimulus" class="hidden w-24 h-24 bg-white rounded-lg shadow-md flex items-center justify-center text-5xl p-2"></div>
+                        <div id="recall-stimulus" class="hidden w-24 h-24 bg-black rounded-lg shadow-md flex items-center justify-center text-5xl p-2"></div>
                     </div>
                 </div>
                 <div class="relative h-28 flex items-center justify-center">
-                     <div id="message-area" class="text-xl font-medium text-gray-700 text-center"></div>
+                     <div id="message-area" class="text-xl font-medium text-gray-300 text-center"></div>
                 </div>
             </div>
         </div>
 
 
         <!-- Tela de Resultados -->
-        <div id="results-screen" class="hidden bg-white rounded-xl shadow-lg p-8">
-            <h2 class="text-3xl font-bold text-gray-800 mb-2 text-center">Resultados do Teste</h2>
-            <p id="results-subject-id" class="text-center text-gray-500 mb-6"></p>
+        <div id="results-screen" class="hidden bg-gray-900 border border-gray-700 rounded-xl shadow-lg p-8">
+            <h2 class="text-3xl font-bold text-white mb-2 text-center">Resultados do Teste</h2>
+            <p id="results-subject-id" class="text-center text-gray-400 mb-6"></p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div class="bg-gray-100 p-4 rounded-lg">
-                    <h3 class="font-bold text-gray-700 text-lg">Métricas Principais</h3>
-                    <div id="summary-results" class="mt-2 space-y-2 text-gray-600"></div>
+                <div class="bg-gray-800 p-4 rounded-lg">
+                    <h3 class="font-bold text-gray-200 text-lg">Métricas Principais</h3>
+                    <div id="summary-results" class="mt-2 space-y-2 text-gray-300"></div>
                 </div>
-                <div class="bg-gray-100 p-4 rounded-lg">
-                    <h3 class="font-bold text-gray-700 text-lg">Desempenho por Estágio</h3>
-                    <div id="stage-results" class="mt-2 space-y-2 text-gray-600"></div>
+                <div class="bg-gray-800 p-4 rounded-lg">
+                    <h3 class="font-bold text-gray-200 text-lg">Desempenho por Estágio</h3>
+                    <div id="stage-results" class="mt-2 space-y-2 text-gray-300"></div>
                 </div>
             </div>
-            <div class="text-center mt-8 border-t pt-6">
+            <div class="text-center mt-8 border-t border-gray-700 pt-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <h3 class="font-bold text-gray-700 text-lg mb-2">Exportar Resumo</h3>
+                        <h3 class="font-bold text-gray-200 text-lg mb-2">Exportar Resumo</h3>
                         <button id="export-csv-summary-btn" class="export-btn bg-green-600 hover:bg-green-700">CSV</button>
                         <button id="export-json-summary-btn" class="export-btn bg-yellow-500 hover:bg-yellow-600">JSON</button>
                         <button id="export-pdf-summary-btn" class="export-btn bg-red-600 hover:bg-red-700">PDF</button>
                     </div>
                     <div>
-                        <h3 class="font-bold text-gray-700 text-lg mb-2">Exportar Relatório Detalhado</h3>
+                        <h3 class="font-bold text-gray-200 text-lg mb-2">Exportar Relatório Detalhado</h3>
                         <button id="export-csv-detailed-btn" class="export-btn bg-green-700 hover:bg-green-800">CSV</button>
                         <button id="export-json-detailed-btn" class="export-btn bg-yellow-600 hover:bg-yellow-700">JSON</button>
                         <button id="export-pdf-detailed-btn" class="export-btn bg-red-700 hover:bg-red-800">PDF</button>
@@ -143,34 +147,33 @@
         constructor() {
             // --- Configuração do Teste ---
             this.STAGES_CONFIG = [2, 4, 6, 8];
-            this.MAX_TOTAL_ERRORS = 10;
-            this.MAX_ERRORS_PER_STAGE = 6;
+            this.MAX_TOTAL_ERRORS_OVERALL = 10;
+            this.MAX_STAGE_ATTEMPTS = 4;
             this.ERROR_PENALTY_PER_STAGE = 10;
             this.ABSTRACT_STIMULI = [
-                '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#3498db" /></svg>',
-                '<svg viewBox="0 0 100 100"><rect width="90" height="90" x="5" y="5" fill="#e74c3c" /></svg>',
-                '<svg viewBox="0 0 100 100"><polygon points="50,5 95,95 5,95" fill="#2ecc71" /></svg>',
-                '<svg viewBox="0 0 100 100"><polygon points="50,5 61,40 98,40 68,62 79,96 50,75 21,96 32,62 2,40 39,40" fill="#f1c40f" /></svg>',
-                '<svg viewBox="0 0 100 100"><path d="M50 5 L95 50 L50 95 L5 50 Z" fill="#9b59b6" /></svg>',
-                '<svg viewBox="0 0 100 100"><path d="M10 10 L90 90 M90 10 L10 90" stroke="#e67e22" stroke-width="15" /></svg>',
-                '<svg viewBox="0 0 100 100"><path d="M20,80 A40,40 0 0,1 80,20" stroke="#34495e" stroke-width="10" fill="none" /></svg>',
-                '<svg viewBox="0 0 100 100"><path d="M10 50 Q 30 10, 50 50 T 90 50" stroke="#1abc9c" stroke-width="10" fill="none"/></svg>',
-                '<svg viewBox="0 0 100 100"><polygon points="10,10 40,90 90,20 20,80 80,10" fill="#e91e63" /></svg>',
-                '<svg viewBox="0 0 100 100"><polygon points="50,10 90,35 90,75 50,95 10,75 10,35" fill="#795548" /></svg>',
-                '<svg viewBox="0 0 100 100"><path d="M20 80 L50 20 L80 80 Z" stroke="#bdc3c7" stroke-width="10" fill="none" /></svg>',
-                '<svg viewBox="0 0 100 100"><path d="M50,10 A40,40,0,1,1,50,90" fill="#8e44ad" /><path d="M50,10 A40,40,0,1,0,50,90" fill="#f0f2f5" /></svg>',
-                '<svg viewBox="0 0 100 100"><path d="M20 20 H 80 V 80 H 20 Z" stroke="#c0392b" stroke-width="10" fill="none" /></svg>',
-                '<svg viewBox="0 0 100 100"><path d="M 50,10 L 80,90 L 20,90 Z" fill="#d35400" /></svg>',
-                '<svg viewBox="0 0 100 100"><path d="M 20,50 C 20,20 80,20 80,50 S 20,80 20,50" fill="#2980b9" /></svg>',
-                '<svg viewBox="0 0 100 100"><rect x="10" y="45" width="80" height="10" fill="#27ae60" /><rect x="45" y="10" width="10" height="80" fill="#27ae60" /></svg>',
-                '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" stroke="#f39c12" stroke-width="10" fill="none" /><circle cx="50" cy="50" r="20" fill="#f39c12" /></svg>',
-                '<svg viewBox="0 0 100 100"><path d="M10,90 C40,10 60,10 90,90" stroke="#d35400" stroke-width="10" fill="none"/></svg>',
-                '<svg viewBox="0 0 100 100"><path d="M15 15 L85 85 M15 85 L85 15" stroke="#c0392b" stroke-width="12" stroke-linecap="round" /></svg>',
-                '<svg viewBox="0 0 100 100"><path d="M50 10 V 90 M10 50 H 90" stroke="#7f8c8d" stroke-width="10" /></svg>'
+                '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#00FFFF" /></svg>', // Cyan
+                '<svg viewBox="0 0 100 100"><rect width="90" height="90" x="5" y="5" fill="#FFD700" /></svg>', // Gold
+                '<svg viewBox="0 0 100 100"><polygon points="50,5 95,95 5,95" fill="#00FF00" /></svg>', // Lime
+                '<svg viewBox="0 0 100 100"><polygon points="50,5 61,40 98,40 68,62 79,96 50,75 21,96 32,62 2,40 39,40" fill="#FF00FF" /></svg>', // Magenta
+                '<svg viewBox="0 0 100 100"><path d="M50 5 L95 50 L50 95 L5 50 Z" fill="#FFA500" /></svg>', // Orange
+                '<svg viewBox="0 0 100 100"><path d="M10 10 L90 90 M90 10 L10 90" stroke="#ADFF2F" stroke-width="15" /></svg>', // Green-Yellow
+                '<svg viewBox="0 0 100 100"><path d="M20,80 A40,40 0 0,1 80,20" stroke="#FFFFFF" stroke-width="10" fill="none" /></svg>', // White
+                '<svg viewBox="0 0 100 100"><path d="M10 50 Q 30 10, 50 50 T 90 50" stroke="#FF69B4" stroke-width="10" fill="none"/></svg>', // Hot Pink
+                '<svg viewBox="0 0 100 100"><polygon points="10,10 40,90 90,20 20,80 80,10" fill="#7FFF00" /></svg>', // Chartreuse
+                '<svg viewBox="0 0 100 100"><polygon points="50,10 90,35 90,75 50,95 10,75 10,35" fill="#FF4500" /></svg>', // Orange-Red
+                '<svg viewBox="0 0 100 100"><path d="M20 80 L50 20 L80 80 Z" stroke="#F0E68C" stroke-width="10" fill="none" /></svg>', // Khaki
+                '<svg viewBox="0 0 100 100"><path d="M50,10 A40,40,0,1,1,50,90" fill="#DA70D6" /><path d="M50,10 A40,40,0,1,0,50,90" fill="black" /></svg>', // Orchid on Black
+                '<svg viewBox="0 0 100 100"><path d="M20 20 H 80 V 80 H 20 Z" stroke="#FF6347" stroke-width="10" fill="none" /></svg>', // Tomato
+                '<svg viewBox="0 0 100 100"><path d="M 50,10 L 80,90 L 20,90 Z" fill="#00BFFF" /></svg>', // Deep Sky Blue
+                '<svg viewBox="0 0 100 100"><path d="M 20,50 C 20,20 80,20 80,50 S 20,80 20,50" fill="#32CD32" /></svg>', // Lime Green
+                '<svg viewBox="0 0 100 100"><rect x="10" y="45" width="80" height="10" fill="#FF1493" /><rect x="45" y="10" width="10" height="80" fill="#FF1493" /></svg>', // Deep Pink
+                '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" stroke="#EE82EE" stroke-width="10" fill="none" /><circle cx="50" cy="50" r="20" fill="#EE82EE" /></svg>', // Violet
+                '<svg viewBox="0 0 100 100"><path d="M10,90 C40,10 60,10 90,90" stroke="#1E90FF" stroke-width="10" fill="none"/></svg>', // Dodger Blue
+                '<svg viewBox="0 0 100 100"><path d="M15 15 L85 85 M15 85 L85 15" stroke="#FF8C00" stroke-width="12" stroke-linecap="round" /></svg>', // Dark Orange
+                '<svg viewBox="0 0 100 100"><path d="M50 10 V 90 M10 50 H 90" stroke="#FA8072" stroke-width="10" /></svg>' // Salmon
             ];
             this.BOX_COUNT = 8; 
 
-            // --- Elementos da UI ---
             this.ui = {
                 subjectIdInput: document.getElementById('subject-id'),
                 startScreen: document.getElementById('start-screen'),
@@ -192,7 +195,6 @@
                 resultsSubjectId: document.getElementById('results-subject-id'),
             };
 
-            // --- Estado do Teste ---
             this.state = {};
             this.resetState();
             
@@ -206,17 +208,17 @@
                 isRecallPhase: false,
                 patternsForStage: [],
                 stimuliPool: [],
-                presentationCount: 1,
                 responseStartTime: 0,
-                correctlyRecalledInStage: [],
                 resolveClick: null,
                 results: {
                     subjectID: '',
                     stagesCompleted: 0,
-                    totalErrors: 0, // PALTE
+                    totalErrors: 0, 
                     totalFirstAttemptSuccesses: 0,
-                    PALTEA: 0, // Total Errors Adjusted
-                    PALMETS: 0, // Mean Errors to Success
+                    meanTrialsToSuccess: 0,
+                    PALTEA: 0, 
+                    PALMETS: 0, 
+                    trialsToSuccessPerStage: [],
                     stages: {},
                     trialLog: []
                 }
@@ -280,8 +282,8 @@
                 card.style.top = `${y}px`;
                 card.dataset.id = i;
                 card.innerHTML = `
-                    <div class="card-face w-full h-full rounded-lg bg-white shadow-md border-2 border-gray-300"></div>
-                    <div class="card-face card-face-back w-full h-full rounded-lg bg-white shadow-lg border-2 border-blue-400 flex items-center justify-center"></div>`;
+                    <div class="card-face w-full h-full rounded-lg bg-gray-800 shadow-md border-2 border-gray-600"></div>
+                    <div class="card-face card-face-back w-full h-full rounded-lg bg-gray-900 flex items-center justify-center"></div>`;
                 this.ui.gridContainer.appendChild(card);
                 card.addEventListener('click', () => this.handleBoxClick(i));
             }
@@ -295,43 +297,36 @@
 
             const stageKey = this.STAGES_CONFIG[this.state.currentStageIndex];
             this.prepareStagePatterns(stageKey);
-            this.state.correctlyRecalledInStage = [];
-
-            // First Presentation
-            this.state.presentationCount = 1;
-            await this.runPresentationPhase();
             
-            const patternsToRecall = this.shuffleArray([...this.state.patternsForStage]);
-            const recallStatus = await this.runRecallLoop(patternsToRecall);
-
-            if (recallStatus === 'TEST_ENDED') return;
-
-            // Re-presentation if an error occurred on the first pass
-            if (recallStatus === 'HAD_ERROR') {
-                this.state.presentationCount = 2;
-                this.ui.messageArea.textContent = 'Vamos rever as posições...';
-                await this.delay(2000);
-                await this.runPresentationPhase(); // Re-present all stimuli
-
-                // Only test the ones that were not yet answered correctly
-                const remainingPatterns = patternsToRecall.filter(p =>
-                    !this.state.correctlyRecalledInStage.some(c => c.stimulusId === p.stimulusId)
-                );
+            for (let stageAttempt = 1; stageAttempt <= this.MAX_STAGE_ATTEMPTS; stageAttempt++) {
+                await this.runPresentationPhase(stageAttempt);
                 
-                const secondRecallStatus = await this.runRecallLoop(remainingPatterns);
-                if (secondRecallStatus === 'TEST_ENDED') return;
-            }
+                const recallWasSuccessful = await this.runRecallPhase(stageAttempt);
 
-            // --- Stage Finalization ---
-            this.state.results.stages[stageKey].completed = true;
-            if (recallStatus === 'COMPLETED_FLAWLESSLY') {
-                this.state.results.stagesCompleted = stageKey;
+                if (recallWasSuccessful) {
+                    this.state.results.trialsToSuccessPerStage.push(stageAttempt);
+                    this.state.results.stages[stageKey].completed = true;
+                    if (stageAttempt === 1) {
+                         this.state.results.stagesCompleted = stageKey;
+                    }
+                    this.state.currentStageIndex++;
+                    this.ui.messageArea.textContent = `Estágio concluído!`;
+                    await this.delay(2000);
+                    this.runStage(); // Move to the next stage
+                    return; // Exit this stage's logic
+                }
+                
+                // If not successful and it's the last attempt, end the test
+                if (stageAttempt === this.MAX_STAGE_ATTEMPTS) {
+                    this.ui.messageArea.textContent = 'Número máximo de tentativas para o estágio atingido.';
+                    await this.delay(2000);
+                    this.endTest();
+                    return;
+                }
+                 // If not successful, loop will continue to next attempt
+                 this.ui.messageArea.textContent = `Vamos tentar o estágio novamente. Tentativa ${stageAttempt + 1}.`;
+                 await this.delay(2000);
             }
-
-            this.state.currentStageIndex++;
-            this.ui.messageArea.textContent = `Estágio concluído!`;
-            await this.delay(2000);
-            this.runStage();
         }
         
         prepareStagePatterns(numPatterns) {
@@ -352,9 +347,9 @@
             }
         }
 
-        async runPresentationPhase() {
+        async runPresentationPhase(stageAttempt) {
             this.state.isPresentationPhase = true;
-            this.ui.messageArea.textContent = 'Memorize as posições...';
+            this.ui.messageArea.textContent = `Memorize as posições... (Tentativa ${stageAttempt})`;
             await this.delay(1500);
             for (const pattern of this.state.patternsForStage) {
                 const card = this.ui.gridContainer.children[pattern.position];
@@ -368,18 +363,23 @@
             this.state.isPresentationPhase = false;
         }
         
-        async runRecallLoop(patternsToTest) {
+        async runRecallPhase(stageAttempt) {
             this.state.isRecallPhase = true;
+            let hadErrorInThisPhase = false;
+            const patternsToRecall = this.shuffleArray([...this.state.patternsForStage]);
 
-            for (const correctPattern of patternsToTest) {
-                for (let attempt = 1; attempt <= 2; attempt++) {
+            for (const correctPattern of patternsToRecall) {
+                for (let itemAttempt = 1; itemAttempt <= 2; itemAttempt++) {
                     this.showNextRecallStimulus(correctPattern);
                     
                     const clickPromise = new Promise(resolve => { this.state.resolveClick = resolve; });
                     const clickedPosition = await clickPromise;
                     this.ui.recallStimulus.classList.add('hidden');
 
-                    if (clickedPosition === null) return 'TEST_ENDED'; 
+                    if (clickedPosition === null) {
+                        this.state.isRecallPhase = false;
+                        return false; 
+                    }
 
                     const isCorrect = clickedPosition === correctPattern.position;
                     const responseTime = Date.now() - this.state.responseStartTime;
@@ -391,36 +391,32 @@
                         correctPosition: correctPattern.position,
                         clickedPosition: clickedPosition,
                         isCorrect: isCorrect,
-                        attempt: attempt,
-                        presentation: this.state.presentationCount,
+                        stageAttempt: stageAttempt,
+                        itemAttempt: itemAttempt,
                         responseTime: responseTime
                     });
 
                     if (isCorrect) {
-                        if (attempt === 1 && this.state.presentationCount === 1) {
+                        if (stageAttempt === 1 && itemAttempt === 1) {
                             this.state.results.stages[this.STAGES_CONFIG[this.state.currentStageIndex]].firstAttemptSuccesses++;
                             this.state.results.totalFirstAttemptSuccesses++;
                         }
-                        this.state.correctlyRecalledInStage.push(correctPattern);
                         await this.handleCorrectVisuals(clickedCard);
                         break; 
                     } else { 
-                        if (this.state.presentationCount === 1) {
-                            await this.handleIncorrectVisualsAndLogic(clickedCard, true);
-                            this.state.isRecallPhase = false;
-                            return 'HAD_ERROR'; 
+                        hadErrorInThisPhase = true;
+                        const shouldEndTest = await this.handleIncorrectVisualsAndLogic(clickedCard, itemAttempt === 1);
+                        if (shouldEndTest) {
+                             this.state.isRecallPhase = false;
+                             return false;
                         }
-                        
-                        const shouldEndTest = await this.handleIncorrectVisualsAndLogic(clickedCard, attempt === 1);
-                        if (shouldEndTest) return 'TEST_ENDED';
-                        
-                        if (attempt === 2) { break; }
+                        if (itemAttempt === 2) { break; }
                     }
                 } 
             } 
 
             this.state.isRecallPhase = false;
-            return 'COMPLETED_FLAWLESSLY'; 
+            return !hadErrorInThisPhase;
         }
 
         showNextRecallStimulus(pattern) {
@@ -453,14 +449,9 @@
                 this.state.results.totalErrors++;
             }
 
-            const stageKey = this.STAGES_CONFIG[this.state.currentStageIndex];
-            if (this.state.results.stages[stageKey].errors >= this.MAX_ERRORS_PER_STAGE || this.state.results.totalErrors >= this.MAX_TOTAL_ERRORS) {
-                this.ui.messageArea.textContent = this.state.results.stages[stageKey].errors >= this.MAX_ERRORS_PER_STAGE
-                    ? 'Muitos erros neste estágio.'
-                    : 'Teste interrompido.';
-                
+            if (this.state.results.totalErrors >= this.MAX_TOTAL_ERRORS_OVERALL) {
+                this.ui.messageArea.textContent = 'Teste interrompido por excesso de erros.';
                 if(this.state.resolveClick) this.state.resolveClick(null);
-
                 await this.delay(1500);
                 card.classList.remove('shake');
                 this.endTest();
@@ -469,9 +460,6 @@
             
             await this.delay(1500);
             card.classList.remove('shake');
-            if (this.state.presentationCount > 1 && this.state.currentAttempt < 2) {
-                 this.ui.messageArea.textContent = 'Tente o mesmo item novamente.';
-            }
             return false;
         }
         
@@ -480,10 +468,8 @@
             let adjustedErrors = this.state.results.totalErrors;
             const lastStageAttemptedIndex = this.state.currentStageIndex;
             this.STAGES_CONFIG.forEach((stage, index) => {
-                if(index >= lastStageAttemptedIndex) {
-                     if (!this.state.results.stages[stage].completed) {
-                         adjustedErrors += this.ERROR_PENALTY_PER_STAGE;
-                     }
+                if(index >= lastStageAttemptedIndex && !this.state.results.stages[stage].completed) {
+                     adjustedErrors += this.ERROR_PENALTY_PER_STAGE;
                 }
             });
             this.state.results.PALTEA = adjustedErrors;
@@ -499,10 +485,15 @@
                 }
             });
             this.state.results.PALMETS = completedStagesCount > 0 ? parseFloat((errorsOnCompletedStages / completedStagesCount).toFixed(2)) : 0;
+            
+            // Mean Trials to Success
+            const trials = this.state.results.trialsToSuccessPerStage;
+            this.state.results.meanTrialsToSuccess = trials.length > 0 ? parseFloat((trials.reduce((a,b) => a+b, 0) / trials.length).toFixed(2)) : 0;
         }
 
         endTest() {
-            this.state.isRecallPhase = false; // Ensure recall phase is stopped
+            this.state.isRecallPhase = false; 
+            if(this.state.resolveClick) this.state.resolveClick(null);
             this.calculateAdvancedMetrics();
             this.ui.testScreen.classList.add('hidden');
             this.displayResults();
@@ -513,10 +504,11 @@
             const res = this.state.results;
             this.ui.resultsSubjectId.textContent = `Resultados para o sujeito: ${res.subjectID}`;
             this.ui.summaryResults.innerHTML = `
-                <p><strong>Nível Máximo Concluído (1ª Apres.):</strong> ${res.stagesCompleted}</p>
+                <p><strong>Nível Máximo Concluído (1ª Tentativa):</strong> ${res.stagesCompleted}</p>
                 <p><strong>Total de Erros (PALTE):</strong> ${res.totalErrors}</p>
                 <p><strong>Total de Erros Ajustado (PALTEA):</strong> ${res.PALTEA}</p>
                 <p><strong>Erros Médios para o Sucesso (PALMETS):</strong> ${res.PALMETS}</p>
+                <p><strong>Tentativas Médias para o Sucesso:</strong> ${res.meanTrialsToSuccess}</p>
                 <p><strong>Acertos na 1ª Tentativa (Item):</strong> ${res.totalFirstAttemptSuccesses}</p>
             `;
             let stageHtml = '';
@@ -525,8 +517,8 @@
                 if (data.completed || data.errors > 0) {
                     stageHtml += `
                         <div class="mt-3">
-                            <p class="font-semibold text-gray-800">Estágio de ${stageKey} padrões:</p>
-                            <p class="ml-4">Erros: ${data.errors}</p>
+                            <p class="font-semibold text-gray-200">Estágio de ${stageKey} padrões:</p>
+                            <p class="ml-4">Erros (primeira tentativa de cada item): ${data.errors}</p>
                             <p class="ml-4">Acertos na 1ª Tentativa (Item): ${data.firstAttemptSuccesses} de ${stageKey}</p>
                         </div>`;
                 }
@@ -538,10 +530,11 @@
             const res = this.state.results;
             const summary = {
                 subjectID: res.subjectID,
-                nivelMaximoConcluido1aApresentacao: res.stagesCompleted,
+                nivelMaximoConcluido1aTentativa: res.stagesCompleted,
                 totalErros_PALTE: res.totalErrors,
                 totalErrosAjustado_PALTEA: res.PALTEA,
                 errosMediosParaSucesso_PALMETS: res.PALMETS,
+                tentativasMediasParaSucesso: res.meanTrialsToSuccess,
                 totalAcertos1aTentativa_Item: res.totalFirstAttemptSuccesses,
             };
             if (type === 'summary') {
@@ -601,10 +594,10 @@
 
             if (type === 'detailed') {
                 csvContent += "\r\nLog Detalhado\r\n";
-                const headers = ["Stage", "StimulusID", "CorrectPosition", "ClickedPosition", "IsCorrect", "Presentation", "AttemptNumber", "ResponseTime_ms"];
+                const headers = ["Stage", "StimulusID", "CorrectPosition", "ClickedPosition", "IsCorrect", "StageAttempt", "ItemAttempt", "ResponseTime_ms"];
                 csvContent += headers.join(",") + "\r\n";
                 results.logDetalhado.forEach(log => {
-                    const row = [log.stage, log.stimulusId, log.correctPosition, log.clickedPosition, log.isCorrect, log.presentation, log.attempt, log.responseTime];
+                    const row = [log.stage, log.stimulusId, log.correctPosition, log.clickedPosition, log.isCorrect, log.stageAttempt, log.itemAttempt, log.responseTime];
                     csvContent += row.join(",") + "\r\n";
                 });
             }
@@ -618,10 +611,10 @@
         }
 
         exportPDF(filename, type) {
-            if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
-                return alert("Erro: A biblioteca para gerar PDF não foi carregada.");
+            if (typeof window.jspdf === 'undefined' || typeof window.jspdf.autoTable === 'undefined') {
+                return alert("Erro: A biblioteca para gerar PDF (autoTable) não foi carregada.");
             }
-            const { jsPDF } = window.jspdf;
+            const { jsPDF, autoTable } = window.jspdf;
             const doc = new jsPDF();
             const results = this.getResultsObject(type);
             const summary = results.resumoGeral;
@@ -633,7 +626,7 @@
             doc.text(`Data: ${new Date().toLocaleString('pt-BR')}`, 14, 28);
             doc.text(`ID do Sujeito: ${summary.subjectID}`, 14, 34);
             
-            doc.autoTable({
+            autoTable(doc, {
                 startY: 40,
                 head: [['Métrica', 'Valor']],
                 body: Object.entries(summary).map(([key, value]) => [key.replace(/_/g, ' '), value]),
@@ -644,12 +637,12 @@
                 doc.addPage();
                 doc.setFontSize(16);
                 doc.text("Log Detalhado de Tentativas", 14, 22);
-                const head = [['Estágio', 'Estímulo', 'Pos. Correta', 'Pos. Clicada', 'Correto?', 'Apres.', 'Tentativa', 'Tempo (ms)']];
+                const head = [['Estágio', 'Estímulo', 'Pos. Correta', 'Pos. Clicada', 'Correto?', 'Tent. Estágio', 'Tent. Item', 'Tempo (ms)']];
                 const body = results.logDetalhado.map(log => [
                     log.stage, log.stimulusId, log.correctPosition, log.clickedPosition, 
-                    log.isCorrect ? 'Sim' : 'Não', log.presentation, log.attempt, log.responseTime
+                    log.isCorrect ? 'Sim' : 'Não', log.stageAttempt, log.itemAttempt, log.responseTime
                 ]);
-                doc.autoTable({ startY: 30, head: head, body: body, theme: 'grid' });
+                autoTable(doc, { startY: 30, head: head, body: body, theme: 'grid' });
             }
             doc.save(`${filename}.pdf`);
         }
