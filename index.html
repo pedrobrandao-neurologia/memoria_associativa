@@ -252,14 +252,24 @@
             this.ui.startScreen.classList.add('hidden');
             this.ui.resultsScreen.classList.add('hidden');
             this.ui.testScreen.classList.remove('hidden');
-            this.setupGrid();
-            this.runStage();
+
+            // BUG FIX: Defer grid setup until the browser has painted the test screen.
+            requestAnimationFrame(() => {
+                this.setupGrid();
+                this.runStage();
+            });
         }
 
         setupGrid() {
             this.ui.gridContainer.innerHTML = '';
-            const radius = this.ui.gridContainer.offsetWidth / 2 - 50; 
-            const center = { x: radius + 25, y: radius + 25 };
+            const containerWidth = this.ui.gridContainer.offsetWidth;
+            if (containerWidth === 0) {
+                console.error("Grid container has no width. Layout may fail.");
+                return; // Exit if container has no dimensions
+            }
+
+            const radius = containerWidth / 2 * 0.8; // Use 80% of half the width for radius
+            const center = { x: containerWidth / 2, y: containerWidth / 2 };
             
             for (let i = 0; i < this.BOX_COUNT; i++) {
                 const angle = (i / this.BOX_COUNT) * 2 * Math.PI - (Math.PI / 2);
@@ -267,8 +277,10 @@
                 const y = center.y + radius * Math.sin(angle);
                 const card = document.createElement('div');
                 card.className = 'card absolute w-24 h-24 cursor-pointer';
+                // Center the card on the calculated (x, y) point
                 card.style.left = `${x}px`;
                 card.style.top = `${y}px`;
+                card.style.transform = 'translate(-50%, -50%)';
                 card.dataset.id = i;
                 card.innerHTML = `
                     <div class="card-face w-full h-full rounded-lg bg-white shadow-md border-2 border-gray-300"></div>
