@@ -78,6 +78,7 @@
                 <p>2. Tente memorizar qual padrão pertence a qual caixa.</p>
                 <p>3. Após todos os padrões terem sido mostrados, um padrão aparecerá no centro da tela.</p>
                 <p>4. A sua tarefa é clicar na caixa onde viu esse padrão. Se errar, pode tentar novamente.</p>
+                 <p>5. Se errar alguma localização na primeira tentativa, a sequência será mostrada novamente.</p>
             </div>
             <button id="start-btn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition-colors text-lg">
                 Iniciar Teste
@@ -143,6 +144,7 @@
             // --- Configuração do Teste ---
             this.STAGES_CONFIG = [2, 4, 6, 8];
             this.MAX_TOTAL_ERRORS = 10;
+            this.MAX_ERRORS_PER_STAGE = 6;
             this.ERROR_PENALTY_PER_STAGE = 10;
             this.ABSTRACT_STIMULI = [
                 '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#3498db" /></svg>',
@@ -207,7 +209,9 @@
                 patternsToRecall: [],
                 stimuliPool: [],
                 currentAttempt: 1,
+                presentationCount: 1,
                 responseStartTime: 0,
+                resolveClick: null,
                 results: {
                     subjectID: '',
                     stagesCompleted: 0,
@@ -282,7 +286,6 @@
                 card.className = 'card absolute w-24 h-24 cursor-pointer';
                 card.style.left = `${x}px`;
                 card.style.top = `${y}px`;
-                // BUG FIX: Removed transform from here, it's now handled by CSS.
                 card.dataset.id = i;
                 card.innerHTML = `
                     <div class="card-face w-full h-full rounded-lg bg-white shadow-md border-2 border-gray-300"></div>
@@ -293,15 +296,43 @@
         }
         
         async runStage() {
-            const numPatterns = this.STAGES_CONFIG[this.state.currentStageIndex];
-            if (!numPatterns) {
+            if (this.state.currentStageIndex >= this.STAGES_CONFIG.length) {
                 this.endTest();
                 return;
             }
 
-            this.prepareStagePatterns(numPatterns);
+            const stageKey = this.STAGES_CONFIG[this.state.currentStageIndex];
+            this.prepareStagePatterns(stageKey);
+            
+            // First Presentation
+            this.state.presentationCount = 1;
             await this.runPresentationPhase();
-            await this.runRecallPhase();
+            let recallStatus = await this.runRecallPhase();
+
+            if (recallStatus === 'TEST_ENDED') return;
+
+            // Re-presentation if needed
+            if (recallStatus === 'NEEDS_REPRESENTATION') {
+                this.state.presentationCount = 2;
+                this.ui.messageArea.textContent = 'Vamos rever as posições...';
+                await this.delay(2000);
+                await this.runPresentationPhase();
+                recallStatus = await this.runRecallPhase(); // Run again
+                if (recallStatus === 'TEST_ENDED') return;
+            }
+            
+            this.state.results.stages[stageKey].completed = true;
+
+            // Only count as stage completed if no re-presentation was needed.
+            if (recallStatus === 'COMPLETED' && this.state.presentationCount === 1) {
+                this.state.results.stagesCompleted = stageKey;
+            }
+
+            // Move to next stage
+            this.state.currentStageIndex++;
+            this.ui.messageArea.textContent = `Estágio concluído!`;
+            await this.delay(2000);
+            this.runStage();
         }
         
         prepareStagePatterns(numPatterns) {
@@ -309,7 +340,6 @@
             this.state.patternsForStage = [];
 
             for (let i = 0; i < numPatterns; i++) {
-                // Take the next available stimulus from the shuffled pool
                 const stimulusIndex = this.state.stimuliPool.pop();
                 if (stimulusIndex === undefined) {
                     console.error("Not enough unique stimuli for the test.");
@@ -334,7 +364,7 @@
                 const cardBack = card.querySelector('.card-face-back');
                 cardBack.innerHTML = pattern.stimulusSVG;
                 card.classList.add('is-flipped');
-                await this.delay(2500); // Increased delay
+                await this.delay(2500);
                 card.classList.remove('is-flipped');
                 await this.delay(500);
             }
@@ -344,16 +374,67 @@
         async runRecallPhase() {
             this.state.isRecallPhase = true;
             this.state.patternsToRecall = this.shuffleArray([...this.state.patternsForStage]);
-            this.state.currentRecallPatternIndex = 0;
-            this.state.currentAttempt = 1;
-            this.showNextRecallStimulus();
+
+            for (let i = 0; i < this.state.patternsToRecall.length; i++) {
+                this.state.currentRecallPatternIndex = i;
+                const correctPattern = this.state.patternsToRecall[i];
+                
+                for (let attempt = 1; attempt <= 2; attempt++) {
+                    this.state.currentAttempt = attempt;
+                    
+                    this.showNextRecallStimulus();
+                    const clickPromise = new Promise(resolve => { this.state.resolveClick = resolve; });
+                    const clickedPosition = await clickPromise;
+                    this.ui.recallStimulus.classList.add('hidden');
+
+                    if (clickedPosition === null) return 'TEST_ENDED'; // Test was ended prematurely
+
+                    const isCorrect = clickedPosition === correctPattern.position;
+                    const responseTime = Date.now() - this.state.responseStartTime;
+                    const clickedCard = this.ui.gridContainer.children[clickedPosition];
+
+                    this.state.results.trialLog.push({
+                        stage: this.STAGES_CONFIG[this.state.currentStageIndex],
+                        stimulusId: correctPattern.stimulusId,
+                        correctPosition: correctPattern.position,
+                        clickedPosition: clickedPosition,
+                        isCorrect: isCorrect,
+                        attempt: this.state.currentAttempt,
+                        responseTime: responseTime
+                    });
+
+                    if (isCorrect) {
+                        if (attempt === 1) {
+                            this.state.results.stages[this.STAGES_CONFIG[this.state.currentStageIndex]].firstAttemptSuccesses++;
+                            this.state.results.totalFirstAttemptSuccesses++;
+                        }
+                        await this.handleCorrectVisuals(clickedCard);
+                        break; // Correct, so break item attempt loop and move to next item
+                    } else {
+                        // On first presentation, first error triggers immediate re-presentation
+                        if (this.state.presentationCount === 1) {
+                            await this.handleIncorrectVisualsAndLogic(clickedCard, true); // True to count error
+                            this.state.isRecallPhase = false;
+                            return 'NEEDS_REPRESENTATION';
+                        }
+                        
+                        // On second presentation
+                        const shouldEndTest = await this.handleIncorrectVisualsAndLogic(clickedCard, attempt === 1);
+                        if (shouldEndTest) return 'TEST_ENDED';
+                        
+                        if (attempt === 2) {
+                            // Failed both attempts, move to next item
+                            break; 
+                        }
+                    }
+                } // End item attempt loop
+            } // End stage patterns loop
+
+            this.state.isRecallPhase = false;
+            return 'COMPLETED';
         }
-        
+
         showNextRecallStimulus() {
-             if (this.state.currentRecallPatternIndex >= this.state.patternsToRecall.length) {
-                this.handleStageCompletion();
-                return;
-            }
             const pattern = this.state.patternsToRecall[this.state.currentRecallPatternIndex];
             this.ui.messageArea.textContent = 'Onde estava este padrão?';
             this.ui.recallStimulus.innerHTML = pattern.stimulusSVG;
@@ -362,73 +443,48 @@
         }
 
         handleBoxClick(clickedPosition) {
-            if (!this.state.isRecallPhase || this.state.isPresentationPhase) return;
-            const correctPattern = this.state.patternsToRecall[this.state.currentRecallPatternIndex];
-            const isCorrect = clickedPosition === correctPattern.position;
-            const responseTime = Date.now() - this.state.responseStartTime;
-            
-            this.state.results.trialLog.push({
-                stage: this.STAGES_CONFIG[this.state.currentStageIndex],
-                stimulusId: correctPattern.stimulusId,
-                correctPosition: correctPattern.position,
-                clickedPosition: clickedPosition,
-                isCorrect: isCorrect,
-                attempt: this.state.currentAttempt,
-                responseTime: responseTime
-            });
-            const card = this.ui.gridContainer.children[clickedPosition];
-            if (isCorrect) this.handleCorrectResponse(card);
-            else this.handleIncorrectResponse(card);
+            if (!this.state.isRecallPhase || !this.state.resolveClick) return;
+            this.state.resolveClick(clickedPosition);
+            this.state.resolveClick = null;
         }
         
-        async handleCorrectResponse(card) {
-            this.state.isRecallPhase = false; 
-            this.ui.recallStimulus.classList.add('hidden');
+        async handleCorrectVisuals(card) {
             this.ui.messageArea.textContent = 'Correto!';
             card.classList.add('pulse-success');
-            const stageKey = this.STAGES_CONFIG[this.state.currentStageIndex];
-            if(this.state.currentAttempt === 1) {
-                this.state.results.stages[stageKey].firstAttemptSuccesses++;
-                this.state.results.totalFirstAttemptSuccesses++;
-            }
             await this.delay(1500);
             card.classList.remove('pulse-success');
-            this.state.currentRecallPatternIndex++;
-            this.state.currentAttempt = 1;
-            this.state.isRecallPhase = true; 
-            this.showNextRecallStimulus();
         }
         
-        async handleIncorrectResponse(card) {
-            this.state.isRecallPhase = false; 
+        async handleIncorrectVisualsAndLogic(card, countError) {
             card.classList.add('shake');
-            this.ui.messageArea.textContent = 'Incorreto. Tente novamente.';
-            const stageKey = this.STAGES_CONFIG[this.state.currentStageIndex];
-            this.state.results.stages[stageKey].errors++;
-            this.state.results.totalErrors++;
-            if (this.state.results.totalErrors >= this.MAX_TOTAL_ERRORS) {
-                await this.delay(1500);
-                this.endTest();
-                return;
+            this.ui.messageArea.textContent = 'Incorreto.';
+
+            if (countError) {
+                const stageKey = this.STAGES_CONFIG[this.state.currentStageIndex];
+                this.state.results.stages[stageKey].errors++;
+                this.state.results.totalErrors++;
             }
-            this.state.currentAttempt++;
+
+            const stageKey = this.STAGES_CONFIG[this.state.currentStageIndex];
+            if (this.state.results.stages[stageKey].errors >= this.MAX_ERRORS_PER_STAGE || this.state.results.totalErrors >= this.MAX_TOTAL_ERRORS) {
+                this.ui.messageArea.textContent = this.state.results.stages[stageKey].errors >= this.MAX_ERRORS_PER_STAGE
+                    ? 'Muitos erros neste estágio.'
+                    : 'Teste interrompido.';
+                
+                if(this.state.resolveClick) this.state.resolveClick(null);
+
+                await this.delay(1500);
+                card.classList.remove('shake');
+                this.endTest();
+                return true; // Indicates test should end
+            }
+            
             await this.delay(1500);
             card.classList.remove('shake');
-            this.state.isRecallPhase = true; 
-            this.showNextRecallStimulus(); 
-        }
-
-        async handleStageCompletion() {
-            const stageKey = this.STAGES_CONFIG[this.state.currentStageIndex];
-            const stageData = this.state.results.stages[stageKey];
-            stageData.completed = true;
-            if (stageData.firstAttemptSuccesses === stageKey) {
-                this.state.results.stagesCompleted = stageKey;
+            if (this.state.presentationCount > 1 && this.state.currentAttempt < 2) {
+                 this.ui.messageArea.textContent = 'Tente o mesmo item novamente.';
             }
-            this.ui.messageArea.textContent = `Estágio ${this.state.currentStageIndex + 1} concluído!`;
-            await this.delay(2000);
-            this.state.currentStageIndex++;
-            this.runStage();
+            return false;
         }
         
         calculateAdvancedMetrics() {
@@ -436,8 +492,10 @@
             let adjustedErrors = this.state.results.totalErrors;
             const lastStageAttemptedIndex = this.state.currentStageIndex;
             this.STAGES_CONFIG.forEach((stage, index) => {
-                if(index > lastStageAttemptedIndex || !this.state.results.stages[stage].completed) {
-                    adjustedErrors += this.ERROR_PENALTY_PER_STAGE;
+                if(index >= lastStageAttemptedIndex) {
+                     if (!this.state.results.stages[stage].completed) {
+                         adjustedErrors += this.ERROR_PENALTY_PER_STAGE;
+                     }
                 }
             });
             this.state.results.PALTEA = adjustedErrors;
@@ -456,6 +514,7 @@
         }
 
         endTest() {
+            this.state.isRecallPhase = false; // Ensure recall phase is stopped
             this.calculateAdvancedMetrics();
             this.ui.testScreen.classList.add('hidden');
             this.displayResults();
@@ -466,11 +525,11 @@
             const res = this.state.results;
             this.ui.resultsSubjectId.textContent = `Resultados para o sujeito: ${res.subjectID}`;
             this.ui.summaryResults.innerHTML = `
-                <p><strong>Nível Máximo Concluído (1ª Tentativa):</strong> ${res.stagesCompleted}</p>
+                <p><strong>Nível Máximo Concluído (1ª Apres.):</strong> ${res.stagesCompleted}</p>
                 <p><strong>Total de Erros (PALTE):</strong> ${res.totalErrors}</p>
                 <p><strong>Total de Erros Ajustado (PALTEA):</strong> ${res.PALTEA}</p>
                 <p><strong>Erros Médios para o Sucesso (PALMETS):</strong> ${res.PALMETS}</p>
-                <p><strong>Acertos na 1ª Tentativa:</strong> ${res.totalFirstAttemptSuccesses}</p>
+                <p><strong>Acertos na 1ª Tentativa (Item):</strong> ${res.totalFirstAttemptSuccesses}</p>
             `;
             let stageHtml = '';
             for (const stageKey of this.STAGES_CONFIG) {
@@ -480,7 +539,7 @@
                         <div class="mt-3">
                             <p class="font-semibold text-gray-800">Estágio de ${stageKey} padrões:</p>
                             <p class="ml-4">Erros: ${data.errors}</p>
-                            <p class="ml-4">Acertos na 1ª Tentativa: ${data.firstAttemptSuccesses} de ${stageKey}</p>
+                            <p class="ml-4">Acertos na 1ª Tentativa (Item): ${data.firstAttemptSuccesses} de ${stageKey}</p>
                         </div>`;
                 }
             }
@@ -491,11 +550,11 @@
             const res = this.state.results;
             const summary = {
                 subjectID: res.subjectID,
-                nivelMaximoConcluido1aTentativa: res.stagesCompleted,
+                nivelMaximoConcluido1aApresentacao: res.stagesCompleted,
                 totalErros_PALTE: res.totalErrors,
                 totalErrosAjustado_PALTEA: res.PALTEA,
                 errosMediosParaSucesso_PALMETS: res.PALMETS,
-                totalAcertos1aTentativa: res.totalFirstAttemptSuccesses,
+                totalAcertos1aTentativa_Item: res.totalFirstAttemptSuccesses,
             };
             if (type === 'summary') {
                 return { resumoGeral: summary };
@@ -506,7 +565,7 @@
                 if (data.completed || data.errors > 0) {
                     stageDetails[stageKey] = {
                         erros: data.errors,
-                        acertos1aTentativa: data.firstAttemptSuccesses,
+                        acertos1aTentativa_Item: data.firstAttemptSuccesses,
                         totalPadroes: parseInt(stageKey)
                     };
                 }
