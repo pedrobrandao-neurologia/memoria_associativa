@@ -1,142 +1,251 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Teste de Memória Associativa (PAL)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.autotable.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        
         body {
             font-family: 'Inter', sans-serif;
             background-color: #000000;
             color: #f0f2f5;
+            touch-action: manipulation;
         }
+        
         .card {
             transition: transform 0.4s ease-in-out;
             transform-style: preserve-3d;
-            transform: translate(-50%, -50%);
+            position: absolute;
+            cursor: pointer;
+            -webkit-user-select: none;
+            user-select: none;
+            transform-origin: center center;
         }
+        
         .card.is-flipped {
-            transform: translate(-50%, -50%) rotateY(180deg);
+            transform: rotateY(180deg) !important;
         }
+        
         .card-face {
             -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
             position: absolute;
             width: 100%;
             height: 100%;
+            border-radius: 0.5rem;
         }
+        
+        .card-face-front {
+            background-color: #1f2937;
+            border: 2px solid #4b5563;
+        }
+        
         .card-face-back {
             transform: rotateY(180deg);
             padding: 8px;
-        }
-        /* Style for the back of the card when revealed */
-        .card.is-flipped .card-face-back {
             background-color: #000000;
             border: 2px solid #FFFFFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
+        
+        .card-face-back svg {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
         .shake {
             animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
         }
+        
         @keyframes shake {
-            10%, 90% { transform: translate3d(-1px, 0, 0); }
-            20%, 80% { transform: translate3d(2px, 0, 0); }
-            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-            40%, 60% { transform: translate3d(4px, 0, 0); }
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
         }
+        
         .pulse-success {
-            animation: pulse-success 0.5s ease-in-out;
+            animation: pulse-success 0.6s ease-in-out;
         }
+        
         @keyframes pulse-success {
-            0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+            0%, 100% { 
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+                border-color: #4b5563;
+            }
+            50% { 
+                box-shadow: 0 0 0 12px rgba(34, 197, 94, 0);
+                border-color: #22c55e;
+            }
         }
+        
         .export-btn {
-            padding: 0.5rem 1rem;
-            font-weight: bold;
+            padding: 0.625rem 1.25rem;
+            font-weight: 600;
             border-radius: 0.5rem;
-            transition: background-color 0.2s;
+            transition: all 0.2s;
             color: white;
             margin: 0.25rem;
+            border: none;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        
+        .export-btn:active {
+            transform: scale(0.95);
+        }
+        
+        #grid-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #recall-stimulus {
+            background-color: #1f2937;
+            border: 3px solid #3b82f6;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+        
+        .screen-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        @media (max-width: 640px) {
+            .export-btn {
+                padding: 0.5rem 0.875rem;
+                font-size: 0.8125rem;
+                margin: 0.125rem;
+            }
+            
+            #recall-stimulus {
+                width: 5rem !important;
+                height: 5rem !important;
+            }
+        }
+        
+        @media (min-width: 641px) and (max-width: 1024px) {
+            #recall-stimulus {
+                width: 6rem !important;
+                height: 6rem !important;
+            }
         }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen">
-    <div id="app" class="w-full max-w-4xl mx-auto p-4 md:p-8">
+<body>
+    <div id="app" class="screen-container">
         
         <!-- Tela de Início -->
-        <div id="start-screen" class="bg-gray-900 rounded-xl shadow-lg p-8 text-center border border-gray-700">
-            <h1 class="text-3xl font-bold text-white mb-2">Teste de Memória Associativa (PAL)</h1>
-            <p class="text-gray-400 mb-6">Este teste avalia a sua capacidade de aprender e recordar a localização de padrões.</p>
-            <div class="max-w-md mx-auto mb-6">
-                <label for="subject-id" class="block text-sm font-medium text-gray-300 mb-1">ID do Sujeito</label>
-                <input type="text" id="subject-id" class="w-full px-3 py-2 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white" placeholder="Insira o ID do sujeito aqui">
+        <div id="start-screen" class="w-full max-w-4xl mx-auto">
+            <div class="bg-gray-900 rounded-xl shadow-2xl p-6 md:p-8 text-center border border-gray-700">
+                <h1 class="text-2xl md:text-3xl font-bold text-white mb-2">Teste de Memória Associativa (PAL)</h1>
+                <p class="text-gray-400 mb-6 text-sm md:text-base">Este teste avalia a sua capacidade de aprender e recordar a localização de padrões.</p>
+                
+                <div class="max-w-md mx-auto mb-6">
+                    <label for="subject-id" class="block text-sm font-medium text-gray-300 mb-2">ID do Sujeito</label>
+                    <input 
+                        type="text" 
+                        id="subject-id" 
+                        class="w-full px-4 py-2 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-800 text-white"
+                        placeholder="Insira o ID do sujeito"
+                        autocomplete="off">
+                </div>
+                
+                <div class="text-left max-w-2xl mx-auto space-y-3 text-gray-300 mb-8 text-sm md:text-base">
+                    <p class="font-semibold text-white">Instruções:</p>
+                    <ol class="list-decimal list-inside space-y-2 ml-2">
+                        <li>No início de cada fase, caixas na tela se abrirão uma a uma para revelar um padrão em seu interior.</li>
+                        <li>Tente memorizar qual padrão pertence a qual caixa.</li>
+                        <li>Após todos os padrões terem sido mostrados, um padrão aparecerá no centro da tela.</li>
+                        <li>Sua tarefa é clicar na caixa onde viu esse padrão. Se errar, pode tentar novamente (até 2 vezes por item).</li>
+                        <li>Se cometer qualquer erro em uma fase, a sequência inteira será mostrada novamente (máximo de 4 tentativas por fase).</li>
+                    </ol>
+                </div>
+                
+                <button 
+                    id="start-btn" 
+                    class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 active:bg-blue-800 transition-colors text-base md:text-lg">
+                    Iniciar Teste
+                </button>
             </div>
-            <div class="text-left max-w-2xl mx-auto space-y-3 text-gray-300 mb-8">
-                <p><strong>Instruções:</strong></p>
-                <p>1. No início de cada fase, caixas na tela se abrirão uma a uma para revelar um padrão em seu interior.</p>
-                <p>2. Tente memorizar qual padrão pertence a qual caixa.</p>
-                <p>3. Após todos os padrões terem sido mostrados, um padrão aparecerá no centro da tela.</p>
-                <p>4. A sua tarefa é clicar na caixa onde viu esse padrão. Se errar, pode tentar novamente (até 2 vezes por item).</p>
-                 <p>5. Se cometer qualquer erro em uma fase, a sequência inteira será mostrada novamente para uma nova tentativa (máximo de 4 tentativas por fase).</p>
-            </div>
-            <button id="start-btn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition-colors text-lg">
-                Iniciar Teste
-            </button>
         </div>
 
         <!-- Tela do Teste -->
-        <div id="test-screen" class="hidden">
-            <div class="w-full max-w-xl mx-auto">
-                <div class="relative w-full aspect-square">
-                    <div id="grid-container" class="absolute inset-0"></div>
-                    <div id="recall-stimulus-container" class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div id="recall-stimulus" class="hidden w-24 h-24 bg-black rounded-lg shadow-md flex items-center justify-center text-5xl p-2"></div>
+        <div id="test-screen" class="hidden w-full max-w-4xl mx-auto px-4">
+            <div class="w-full max-w-2xl mx-auto">
+                <div class="relative w-full" style="padding-bottom: 100%;">
+                    <div class="absolute inset-0">
+                        <div id="grid-container"></div>
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div id="recall-stimulus" class="hidden w-24 h-24 md:w-28 md:h-28 rounded-lg shadow-xl flex items-center justify-center p-2"></div>
+                        </div>
                     </div>
                 </div>
-                <div class="relative h-28 flex items-center justify-center">
-                     <div id="message-area" class="text-xl font-medium text-gray-300 text-center"></div>
+                <div class="mt-6 h-20 flex items-center justify-center">
+                    <div id="message-area" class="text-lg md:text-xl font-medium text-gray-300 text-center px-4"></div>
                 </div>
             </div>
         </div>
 
-
         <!-- Tela de Resultados -->
-        <div id="results-screen" class="hidden bg-gray-900 border border-gray-700 rounded-xl shadow-lg p-8">
-            <h2 class="text-3xl font-bold text-white mb-2 text-center">Resultados do Teste</h2>
-            <p id="results-subject-id" class="text-center text-gray-400 mb-6"></p>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div class="bg-gray-800 p-4 rounded-lg">
-                    <h3 class="font-bold text-gray-200 text-lg">Métricas Principais</h3>
-                    <div id="summary-results" class="mt-2 space-y-2 text-gray-300"></div>
-                </div>
-                <div class="bg-gray-800 p-4 rounded-lg">
-                    <h3 class="font-bold text-gray-200 text-lg">Desempenho por Estágio</h3>
-                    <div id="stage-results" class="mt-2 space-y-2 text-gray-300"></div>
-                </div>
-            </div>
-            <div class="text-center mt-8 border-t border-gray-700 pt-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <h3 class="font-bold text-gray-200 text-lg mb-2">Exportar Resumo</h3>
-                        <button id="export-csv-summary-btn" class="export-btn bg-green-600 hover:bg-green-700">CSV</button>
-                        <button id="export-json-summary-btn" class="export-btn bg-yellow-500 hover:bg-yellow-600">JSON</button>
-                        <button id="export-pdf-summary-btn" class="export-btn bg-red-600 hover:bg-red-700">PDF</button>
+        <div id="results-screen" class="hidden w-full max-w-5xl mx-auto">
+            <div class="bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-6 md:p-8">
+                <h2 class="text-2xl md:text-3xl font-bold text-white mb-2 text-center">Resultados do Teste</h2>
+                <p id="results-subject-id" class="text-center text-gray-400 mb-6 text-sm md:text-base"></p>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-8">
+                    <div class="bg-gray-800 p-4 md:p-5 rounded-lg">
+                        <h3 class="font-bold text-gray-200 text-lg mb-3">Métricas Principais</h3>
+                        <div id="summary-results" class="space-y-2 text-gray-300 text-sm md:text-base"></div>
                     </div>
-                    <div>
-                        <h3 class="font-bold text-gray-200 text-lg mb-2">Exportar Relatório Detalhado</h3>
-                        <button id="export-csv-detailed-btn" class="export-btn bg-green-700 hover:bg-green-800">CSV</button>
-                        <button id="export-json-detailed-btn" class="export-btn bg-yellow-600 hover:bg-yellow-700">JSON</button>
-                        <button id="export-pdf-detailed-btn" class="export-btn bg-red-700 hover:bg-red-800">PDF</button>
+                    <div class="bg-gray-800 p-4 md:p-5 rounded-lg">
+                        <h3 class="font-bold text-gray-200 text-lg mb-3">Desempenho por Estágio</h3>
+                        <div id="stage-results" class="space-y-2 text-gray-300 text-sm md:text-base"></div>
                     </div>
                 </div>
-                <button id="restart-btn" class="bg-gray-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-gray-700 transition-colors mt-8">
-                    Reiniciar Teste
-                </button>
+                
+                <div class="border-t border-gray-700 pt-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div class="text-center">
+                            <h3 class="font-bold text-gray-200 text-base md:text-lg mb-3">Exportar Resumo</h3>
+                            <div class="flex flex-wrap justify-center">
+                                <button id="export-csv-summary-btn" class="export-btn bg-green-600 hover:bg-green-700 active:bg-green-800">CSV</button>
+                                <button id="export-json-summary-btn" class="export-btn bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700">JSON</button>
+                                <button id="export-pdf-summary-btn" class="export-btn bg-red-600 hover:bg-red-700 active:bg-red-800">PDF</button>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <h3 class="font-bold text-gray-200 text-base md:text-lg mb-3">Exportar Relatório Detalhado</h3>
+                            <div class="flex flex-wrap justify-center">
+                                <button id="export-csv-detailed-btn" class="export-btn bg-green-700 hover:bg-green-800 active:bg-green-900">CSV</button>
+                                <button id="export-json-detailed-btn" class="export-btn bg-yellow-600 hover:bg-yellow-700 active:bg-yellow-800">JSON</button>
+                                <button id="export-pdf-detailed-btn" class="export-btn bg-red-700 hover:bg-red-800 active:bg-red-900">PDF</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <button id="restart-btn" class="bg-gray-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-gray-700 active:bg-gray-800 transition-colors">
+                            Reiniciar Teste
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -145,34 +254,34 @@
     <script>
     class PALTest {
         constructor() {
-            // --- Configuração do Teste ---
             this.STAGES_CONFIG = [2, 4, 6, 8];
             this.MAX_TOTAL_ERRORS_OVERALL = 10;
             this.MAX_STAGE_ATTEMPTS = 4;
             this.ERROR_PENALTY_PER_STAGE = 10;
+            this.BOX_COUNT = 8;
+            
             this.ABSTRACT_STIMULI = [
-                '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#00FFFF" /></svg>', // Cyan
-                '<svg viewBox="0 0 100 100"><rect width="90" height="90" x="5" y="5" fill="#FFD700" /></svg>', // Gold
-                '<svg viewBox="0 0 100 100"><polygon points="50,5 95,95 5,95" fill="#00FF00" /></svg>', // Lime
-                '<svg viewBox="0 0 100 100"><polygon points="50,5 61,40 98,40 68,62 79,96 50,75 21,96 32,62 2,40 39,40" fill="#FF00FF" /></svg>', // Magenta
-                '<svg viewBox="0 0 100 100"><path d="M50 5 L95 50 L50 95 L5 50 Z" fill="#FFA500" /></svg>', // Orange
-                '<svg viewBox="0 0 100 100"><path d="M10 10 L90 90 M90 10 L10 90" stroke="#ADFF2F" stroke-width="15" /></svg>', // Green-Yellow
-                '<svg viewBox="0 0 100 100"><path d="M20,80 A40,40 0 0,1 80,20" stroke="#FFFFFF" stroke-width="10" fill="none" /></svg>', // White
-                '<svg viewBox="0 0 100 100"><path d="M10 50 Q 30 10, 50 50 T 90 50" stroke="#FF69B4" stroke-width="10" fill="none"/></svg>', // Hot Pink
-                '<svg viewBox="0 0 100 100"><polygon points="10,10 40,90 90,20 20,80 80,10" fill="#7FFF00" /></svg>', // Chartreuse
-                '<svg viewBox="0 0 100 100"><polygon points="50,10 90,35 90,75 50,95 10,75 10,35" fill="#FF4500" /></svg>', // Orange-Red
-                '<svg viewBox="0 0 100 100"><path d="M20 80 L50 20 L80 80 Z" stroke="#F0E68C" stroke-width="10" fill="none" /></svg>', // Khaki
-                '<svg viewBox="0 0 100 100"><path d="M50,10 A40,40,0,1,1,50,90" fill="#DA70D6" /><path d="M50,10 A40,40,0,1,0,50,90" fill="black" /></svg>', // Orchid on Black
-                '<svg viewBox="0 0 100 100"><path d="M20 20 H 80 V 80 H 20 Z" stroke="#FF6347" stroke-width="10" fill="none" /></svg>', // Tomato
-                '<svg viewBox="0 0 100 100"><path d="M 50,10 L 80,90 L 20,90 Z" fill="#00BFFF" /></svg>', // Deep Sky Blue
-                '<svg viewBox="0 0 100 100"><path d="M 20,50 C 20,20 80,20 80,50 S 20,80 20,50" fill="#32CD32" /></svg>', // Lime Green
-                '<svg viewBox="0 0 100 100"><rect x="10" y="45" width="80" height="10" fill="#FF1493" /><rect x="45" y="10" width="10" height="80" fill="#FF1493" /></svg>', // Deep Pink
-                '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" stroke="#EE82EE" stroke-width="10" fill="none" /><circle cx="50" cy="50" r="20" fill="#EE82EE" /></svg>', // Violet
-                '<svg viewBox="0 0 100 100"><path d="M10,90 C40,10 60,10 90,90" stroke="#1E90FF" stroke-width="10" fill="none"/></svg>', // Dodger Blue
-                '<svg viewBox="0 0 100 100"><path d="M15 15 L85 85 M15 85 L85 15" stroke="#FF8C00" stroke-width="12" stroke-linecap="round" /></svg>', // Dark Orange
-                '<svg viewBox="0 0 100 100"><path d="M50 10 V 90 M10 50 H 90" stroke="#FA8072" stroke-width="10" /></svg>' // Salmon
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="45" fill="#00FFFF" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="90" height="90" x="5" y="5" fill="#FFD700" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><polygon points="50,5 95,95 5,95" fill="#00FF00" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><polygon points="50,5 61,40 98,40 68,62 79,96 50,75 21,96 32,62 2,40 39,40" fill="#FF00FF" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M50 5 L95 50 L50 95 L5 50 Z" fill="#FFA500" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M10 10 L90 90 M90 10 L10 90" stroke="#ADFF2F" stroke-width="15" stroke-linecap="round" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M20,80 A40,40 0 0,1 80,20" stroke="#FFFFFF" stroke-width="10" fill="none" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M10 50 Q 30 10, 50 50 T 90 50" stroke="#FF69B4" stroke-width="10" fill="none"/></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><polygon points="10,10 40,90 90,20 20,80 80,10" fill="#7FFF00" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><polygon points="50,10 90,35 90,75 50,95 10,75 10,35" fill="#FF4500" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M20 80 L50 20 L80 80 Z" stroke="#F0E68C" stroke-width="10" fill="none" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M50,10 A40,40,0,1,1,50,90" fill="#DA70D6" /><path d="M50,10 A40,40,0,1,0,50,90" fill="#1a1a1a" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M20 20 H 80 V 80 H 20 Z" stroke="#FF6347" stroke-width="10" fill="none" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M 50,10 L 80,90 L 20,90 Z" fill="#00BFFF" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M 20,50 C 20,20 80,20 80,50 S 20,80 20,50" fill="#32CD32" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="45" width="80" height="10" fill="#FF1493" /><rect x="45" y="10" width="10" height="80" fill="#FF1493" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="40" stroke="#EE82EE" stroke-width="10" fill="none" /><circle cx="50" cy="50" r="20" fill="#EE82EE" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M10,90 C40,10 60,10 90,90" stroke="#1E90FF" stroke-width="10" fill="none"/></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M15 15 L85 85 M15 85 L85 15" stroke="#FF8C00" stroke-width="12" stroke-linecap="round" /></svg>',
+                '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M50 10 V 90 M10 50 H 90" stroke="#FA8072" stroke-width="10" /></svg>'
             ];
-            this.BOX_COUNT = 8; 
 
             this.ui = {
                 subjectIdInput: document.getElementById('subject-id'),
@@ -197,8 +306,9 @@
 
             this.state = {};
             this.resetState();
-            
             this.bindEvents();
+            
+            window.addEventListener('resize', () => this.handleResize());
         }
 
         resetState() {
@@ -210,32 +320,33 @@
                 stimuliPool: [],
                 responseStartTime: 0,
                 resolveClick: null,
+                gridSetup: false,
                 results: {
                     subjectID: '',
                     stagesCompleted: 0,
-                    totalErrors: 0, 
+                    totalErrors: 0,
                     totalFirstAttemptSuccesses: 0,
                     meanTrialsToSuccess: 0,
-                    PALTEA: 0, 
-                    PALMETS: 0, 
+                    PALTEA: 0,
+                    PALMETS: 0,
                     trialsToSuccessPerStage: [],
                     stages: {},
                     trialLog: []
                 }
             };
+            
             this.STAGES_CONFIG.forEach(numPatterns => {
-                 this.state.results.stages[numPatterns] = {
+                this.state.results.stages[numPatterns] = {
                     errors: 0,
                     firstAttemptSuccesses: 0,
                     completed: false
                 };
             });
-            this.ui.subjectIdInput.value = '';
         }
 
         bindEvents() {
             this.ui.startBtn.addEventListener('click', () => this.startTest());
-            this.ui.restartBtn.addEventListener('click', () => this.startTest());
+            this.ui.restartBtn.addEventListener('click', () => this.restartTest());
             this.ui.exportCsvSummaryBtn.addEventListener('click', () => this.exportController('csv', 'summary'));
             this.ui.exportJsonSummaryBtn.addEventListener('click', () => this.exportController('json', 'summary'));
             this.ui.exportPdfSummaryBtn.addEventListener('click', () => this.exportController('pdf', 'summary'));
@@ -244,15 +355,23 @@
             this.ui.exportPdfDetailedBtn.addEventListener('click', () => this.exportController('pdf', 'detailed'));
         }
 
+        handleResize() {
+            if (this.state.gridSetup && !this.ui.testScreen.classList.contains('hidden')) {
+                this.setupGrid();
+            }
+        }
+
         startTest() {
             const subjectID = this.ui.subjectIdInput.value.trim();
             if (!subjectID) {
                 alert('Por favor, insira um ID para o sujeito antes de iniciar.');
+                this.ui.subjectIdInput.focus();
                 return;
             }
+            
             this.resetState();
             this.state.results.subjectID = subjectID;
-            this.state.stimuliPool = this.shuffleArray([...this.ABSTRACT_STIMULI.keys()]);
+            this.state.stimuliPool = this.shuffleArray([...Array(this.ABSTRACT_STIMULI.length).keys()]);
 
             this.ui.startScreen.classList.add('hidden');
             this.ui.resultsScreen.classList.add('hidden');
@@ -260,35 +379,70 @@
 
             requestAnimationFrame(() => {
                 this.setupGrid();
+                this.state.gridSetup = true;
                 this.runStage();
             });
         }
 
+        restartTest() {
+            this.ui.resultsScreen.classList.add('hidden');
+            this.ui.startScreen.classList.remove('hidden');
+            this.ui.subjectIdInput.focus();
+        }
+
         setupGrid() {
             this.ui.gridContainer.innerHTML = '';
-            const containerWidth = this.ui.gridContainer.offsetWidth;
-            if (containerWidth === 0) { return; }
+            const container = this.ui.gridContainer.parentElement;
+            const containerWidth = container.offsetWidth;
+            const containerHeight = container.offsetHeight;
+            
+            if (containerWidth === 0 || containerHeight === 0) {
+                console.error('Container dimensions are zero');
+                return;
+            }
 
-            const radius = containerWidth / 2 * 0.8;
-            const center = { x: containerWidth / 2, y: containerWidth / 2 };
+            const size = Math.min(containerWidth, containerHeight);
+            const radius = size / 2 * 0.75;
+            const center = { x: size / 2, y: size / 2 };
+            
+            const cardSize = Math.max(60, Math.min(96, size * 0.15));
             
             for (let i = 0; i < this.BOX_COUNT; i++) {
                 const angle = (i / this.BOX_COUNT) * 2 * Math.PI - (Math.PI / 2);
                 const x = center.x + radius * Math.cos(angle);
                 const y = center.y + radius * Math.sin(angle);
+                
                 const card = document.createElement('div');
-                card.className = 'card absolute w-24 h-24 cursor-pointer';
+                card.className = 'card';
+                card.style.width = `${cardSize}px`;
+                card.style.height = `${cardSize}px`;
                 card.style.left = `${x}px`;
                 card.style.top = `${y}px`;
+                card.style.transform = `translate(-50%, -50%)`;
+                card.style.transformStyle = 'preserve-3d';
                 card.dataset.id = i;
+                
                 card.innerHTML = `
-                    <div class="card-face w-full h-full rounded-lg bg-gray-800 shadow-md border-2 border-gray-600"></div>
-                    <div class="card-face card-face-back w-full h-full rounded-lg bg-gray-900 flex items-center justify-center"></div>`;
+                    <div class="card-face card-face-front"></div>
+                    <div class="card-face card-face-back"></div>
+                `;
+                
                 this.ui.gridContainer.appendChild(card);
-                card.addEventListener('click', () => this.handleBoxClick(i));
+                
+                card.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.handleBoxClick(i);
+                });
+                
+                card.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.handleBoxClick(i);
+                });
             }
         }
-        
+
         async runStage() {
             if (this.state.currentStageIndex >= this.STAGES_CONFIG.length) {
                 this.endTest();
@@ -300,45 +454,45 @@
             
             for (let stageAttempt = 1; stageAttempt <= this.MAX_STAGE_ATTEMPTS; stageAttempt++) {
                 await this.runPresentationPhase(stageAttempt);
-                
                 const recallWasSuccessful = await this.runRecallPhase(stageAttempt);
 
                 if (recallWasSuccessful) {
                     this.state.results.trialsToSuccessPerStage.push(stageAttempt);
                     this.state.results.stages[stageKey].completed = true;
                     if (stageAttempt === 1) {
-                         this.state.results.stagesCompleted = stageKey;
+                        this.state.results.stagesCompleted = stageKey;
                     }
                     this.state.currentStageIndex++;
-                    this.ui.messageArea.textContent = `Estágio concluído!`;
+                    this.ui.messageArea.textContent = 'Estágio concluído!';
                     await this.delay(2000);
-                    this.runStage(); // Move to the next stage
-                    return; // Exit this stage's logic
+                    this.runStage();
+                    return;
                 }
                 
-                // If not successful and it's the last attempt, end the test
                 if (stageAttempt === this.MAX_STAGE_ATTEMPTS) {
-                    this.ui.messageArea.textContent = 'Número máximo de tentativas para o estágio atingido.';
+                    this.ui.messageArea.textContent = 'Número máximo de tentativas atingido.';
                     await this.delay(2000);
                     this.endTest();
                     return;
                 }
-                 // If not successful, loop will continue to next attempt
-                 this.ui.messageArea.textContent = `Vamos tentar o estágio novamente. Tentativa ${stageAttempt + 1}.`;
-                 await this.delay(2000);
+                
+                this.ui.messageArea.textContent = `Vamos tentar novamente. Tentativa ${stageAttempt + 1} de ${this.MAX_STAGE_ATTEMPTS}`;
+                await this.delay(2000);
             }
         }
-        
+
         prepareStagePatterns(numPatterns) {
             const availablePositions = this.shuffleArray([...Array(this.BOX_COUNT).keys()]);
             this.state.patternsForStage = [];
+            
             for (let i = 0; i < numPatterns; i++) {
-                const stimulusIndex = this.state.stimuliPool.pop();
-                if (stimulusIndex === undefined) {
-                    console.error("Not enough unique stimuli for the test.");
+                if (this.state.stimuliPool.length === 0) {
+                    console.error('Não há estímulos suficientes');
                     this.endTest();
                     return;
                 }
+                
+                const stimulusIndex = this.state.stimuliPool.pop();
                 this.state.patternsForStage.push({
                     stimulusSVG: this.ABSTRACT_STIMULI[stimulusIndex],
                     stimulusId: `Forma ${stimulusIndex + 1}`,
@@ -351,18 +505,31 @@
             this.state.isPresentationPhase = true;
             this.ui.messageArea.textContent = `Memorize as posições... (Tentativa ${stageAttempt})`;
             await this.delay(1500);
+            
             for (const pattern of this.state.patternsForStage) {
                 const card = this.ui.gridContainer.children[pattern.position];
+                if (!card) continue;
+                
                 const cardBack = card.querySelector('.card-face-back');
                 cardBack.innerHTML = pattern.stimulusSVG;
+                
+                // Força o reflow para garantir que a transição aconteça
+                card.offsetHeight;
+                
                 card.classList.add('is-flipped');
+                
                 await this.delay(2500);
+                
                 card.classList.remove('is-flipped');
-                await this.delay(500);
+                
+                // Limpa o conteúdo após virar de volta
+                await this.delay(400);
+                cardBack.innerHTML = '';
             }
+            
             this.state.isPresentationPhase = false;
         }
-        
+
         async runRecallPhase(stageAttempt) {
             this.state.isRecallPhase = true;
             let hadErrorInThisPhase = false;
@@ -372,13 +539,15 @@
                 for (let itemAttempt = 1; itemAttempt <= 2; itemAttempt++) {
                     this.showNextRecallStimulus(correctPattern);
                     
-                    const clickPromise = new Promise(resolve => { this.state.resolveClick = resolve; });
-                    const clickedPosition = await clickPromise;
+                    const clickedPosition = await new Promise(resolve => {
+                        this.state.resolveClick = resolve;
+                    });
+                    
                     this.ui.recallStimulus.classList.add('hidden');
 
                     if (clickedPosition === null) {
                         this.state.isRecallPhase = false;
-                        return false; 
+                        return false;
                     }
 
                     const isCorrect = clickedPosition === correctPattern.position;
@@ -398,22 +567,23 @@
 
                     if (isCorrect) {
                         if (stageAttempt === 1 && itemAttempt === 1) {
-                            this.state.results.stages[this.STAGES_CONFIG[this.state.currentStageIndex]].firstAttemptSuccesses++;
+                            const stageKey = this.STAGES_CONFIG[this.state.currentStageIndex];
+                            this.state.results.stages[stageKey].firstAttemptSuccesses++;
                             this.state.results.totalFirstAttemptSuccesses++;
                         }
                         await this.handleCorrectVisuals(clickedCard);
-                        break; 
-                    } else { 
+                        break;
+                    } else {
                         hadErrorInThisPhase = true;
                         const shouldEndTest = await this.handleIncorrectVisualsAndLogic(clickedCard, itemAttempt === 1);
                         if (shouldEndTest) {
-                             this.state.isRecallPhase = false;
-                             return false;
+                            this.state.isRecallPhase = false;
+                            return false;
                         }
-                        if (itemAttempt === 2) { break; }
+                        if (itemAttempt === 2) break;
                     }
-                } 
-            } 
+                }
+            }
 
             this.state.isRecallPhase = false;
             return !hadErrorInThisPhase;
@@ -428,20 +598,22 @@
 
         handleBoxClick(clickedPosition) {
             if (!this.state.isRecallPhase || !this.state.resolveClick) return;
-            this.state.resolveClick(clickedPosition);
+            
+            const resolve = this.state.resolveClick;
             this.state.resolveClick = null;
+            resolve(clickedPosition);
         }
-        
+
         async handleCorrectVisuals(card) {
             this.ui.messageArea.textContent = 'Correto!';
             card.classList.add('pulse-success');
-            await this.delay(1500);
+            await this.delay(1000);
             card.classList.remove('pulse-success');
         }
-        
+
         async handleIncorrectVisualsAndLogic(card, countError) {
             card.classList.add('shake');
-            this.ui.messageArea.textContent = 'Incorreto.';
+            this.ui.messageArea.textContent = 'Incorreto. Tente novamente.';
 
             if (countError) {
                 const stageKey = this.STAGES_CONFIG[this.state.currentStageIndex];
@@ -450,33 +622,32 @@
             }
 
             if (this.state.results.totalErrors >= this.MAX_TOTAL_ERRORS_OVERALL) {
-                this.ui.messageArea.textContent = 'Teste interrompido por excesso de erros.';
-                if(this.state.resolveClick) this.state.resolveClick(null);
-                await this.delay(1500);
+                this.ui.messageArea.textContent = 'Teste encerrado: limite de erros atingido.';
+                await this.delay(2000);
                 card.classList.remove('shake');
                 this.endTest();
-                return true; // Indicates test should end
+                return true;
             }
-            
-            await this.delay(1500);
+
+            await this.delay(1000);
             card.classList.remove('shake');
             return false;
         }
-        
+
         calculateAdvancedMetrics() {
-            // PALTEA: Total Errors (Adjusted)
             let adjustedErrors = this.state.results.totalErrors;
             const lastStageAttemptedIndex = this.state.currentStageIndex;
+            
             this.STAGES_CONFIG.forEach((stage, index) => {
-                if(index >= lastStageAttemptedIndex && !this.state.results.stages[stage].completed) {
-                     adjustedErrors += this.ERROR_PENALTY_PER_STAGE;
+                if (index >= lastStageAttemptedIndex && !this.state.results.stages[stage].completed) {
+                    adjustedErrors += this.ERROR_PENALTY_PER_STAGE;
                 }
             });
             this.state.results.PALTEA = adjustedErrors;
 
-            // PALMETS: Mean errors to success on completed stages
             let errorsOnCompletedStages = 0;
             let completedStagesCount = 0;
+            
             this.STAGES_CONFIG.forEach(stageKey => {
                 const stage = this.state.results.stages[stageKey];
                 if (stage.completed) {
@@ -484,16 +655,26 @@
                     completedStagesCount++;
                 }
             });
-            this.state.results.PALMETS = completedStagesCount > 0 ? parseFloat((errorsOnCompletedStages / completedStagesCount).toFixed(2)) : 0;
             
-            // Mean Trials to Success
+            this.state.results.PALMETS = completedStagesCount > 0 
+                ? parseFloat((errorsOnCompletedStages / completedStagesCount).toFixed(2)) 
+                : 0;
+
             const trials = this.state.results.trialsToSuccessPerStage;
-            this.state.results.meanTrialsToSuccess = trials.length > 0 ? parseFloat((trials.reduce((a,b) => a+b, 0) / trials.length).toFixed(2)) : 0;
+            this.state.results.meanTrialsToSuccess = trials.length > 0 
+                ? parseFloat((trials.reduce((a, b) => a + b, 0) / trials.length).toFixed(2)) 
+                : 0;
         }
 
         endTest() {
-            this.state.isRecallPhase = false; 
-            if(this.state.resolveClick) this.state.resolveClick(null);
+            this.state.isRecallPhase = false;
+            this.state.isPresentationPhase = false;
+            
+            if (this.state.resolveClick) {
+                this.state.resolveClick(null);
+                this.state.resolveClick = null;
+            }
+            
             this.calculateAdvancedMetrics();
             this.ui.testScreen.classList.add('hidden');
             this.displayResults();
@@ -503,6 +684,7 @@
         displayResults() {
             const res = this.state.results;
             this.ui.resultsSubjectId.textContent = `Resultados para o sujeito: ${res.subjectID}`;
+            
             this.ui.summaryResults.innerHTML = `
                 <p><strong>Nível Máximo Concluído (1ª Tentativa):</strong> ${res.stagesCompleted}</p>
                 <p><strong>Total de Erros (PALTE):</strong> ${res.totalErrors}</p>
@@ -511,25 +693,28 @@
                 <p><strong>Tentativas Médias para o Sucesso:</strong> ${res.meanTrialsToSuccess}</p>
                 <p><strong>Acertos na 1ª Tentativa (Item):</strong> ${res.totalFirstAttemptSuccesses}</p>
             `;
+            
             let stageHtml = '';
             for (const stageKey of this.STAGES_CONFIG) {
                 const data = res.stages[stageKey];
                 if (data.completed || data.errors > 0) {
                     stageHtml += `
-                        <div class="mt-3">
-                            <p class="font-semibold text-gray-200">Estágio de ${stageKey} padrões:</p>
-                            <p class="ml-4">Erros (primeira tentativa de cada item): ${data.errors}</p>
-                            <p class="ml-4">Acertos na 1ª Tentativa (Item): ${data.firstAttemptSuccesses} de ${stageKey}</p>
+                        <div class="mt-3 p-3 bg-gray-700 rounded">
+                            <p class="font-semibold text-white">Estágio de ${stageKey} padrões:</p>
+                            <p class="ml-4 text-sm">Erros: ${data.errors}</p>
+                            <p class="ml-4 text-sm">Acertos na 1ª Tentativa: ${data.firstAttemptSuccesses} de ${stageKey}</p>
+                            <p class="ml-4 text-sm">Status: ${data.completed ? '✓ Completo' : '✗ Incompleto'}</p>
                         </div>`;
                 }
             }
-            this.ui.stageResults.innerHTML = stageHtml;
+            this.ui.stageResults.innerHTML = stageHtml || '<p class="text-gray-400">Nenhum estágio completado</p>';
         }
 
         getResultsObject(type = 'detailed') {
             const res = this.state.results;
             const summary = {
                 subjectID: res.subjectID,
+                dataHora: new Date().toLocaleString('pt-BR'),
                 nivelMaximoConcluido1aTentativa: res.stagesCompleted,
                 totalErros_PALTE: res.totalErrors,
                 totalErrosAjustado_PALTEA: res.PALTEA,
@@ -537,73 +722,115 @@
                 tentativasMediasParaSucesso: res.meanTrialsToSuccess,
                 totalAcertos1aTentativa_Item: res.totalFirstAttemptSuccesses,
             };
+            
             if (type === 'summary') {
                 return { resumoGeral: summary };
             }
+            
             const stageDetails = {};
             for (const stageKey of this.STAGES_CONFIG) {
                 const data = res.stages[stageKey];
                 if (data.completed || data.errors > 0) {
-                    stageDetails[stageKey] = {
+                    stageDetails[`estagio_${stageKey}`] = {
                         erros: data.errors,
                         acertos1aTentativa_Item: data.firstAttemptSuccesses,
-                        totalPadroes: parseInt(stageKey)
+                        totalPadroes: parseInt(stageKey),
+                        completo: data.completed
                     };
                 }
             }
+            
             return {
                 resumoGeral: summary,
                 desempenhoPorEstagio: stageDetails,
                 logDetalhado: res.trialLog
             };
         }
-        
+
         exportController(format, type) {
             const subjectID = this.state.results.subjectID;
             if (!subjectID) {
-                alert("ID do sujeito não encontrado. A exportação foi cancelada.");
+                alert('ID do sujeito não encontrado.');
                 return;
             }
-            const date = new Date().toISOString().split('T')[0];
-            const filename = `PAL_${subjectID}_${date}_${type}`;
+            
+            const date = new Date().toISOString().slice(0, 10);
+            const time = new Date().toTimeString().slice(0, 5).replace(':', '-');
+            const filename = `PAL_${subjectID}_${date}_${time}_${type}`;
 
-            switch (format) {
-                case 'csv': this.exportCSV(filename, type); break;
-                case 'json': this.exportJSON(filename, type); break;
-                case 'pdf': this.exportPDF(filename, type); break;
+            try {
+                switch (format) {
+                    case 'csv':
+                        this.exportCSV(filename, type);
+                        break;
+                    case 'json':
+                        this.exportJSON(filename, type);
+                        break;
+                    case 'pdf':
+                        this.exportPDF(filename, type);
+                        break;
+                }
+            } catch (error) {
+                console.error('Erro na exportação:', error);
+                alert(`Erro ao exportar: ${error.message}`);
             }
         }
 
         downloadFile(content, fileName, contentType) {
-            const a = document.createElement("a");
+            const a = document.createElement('a');
             const file = new Blob([content], { type: contentType });
             a.href = URL.createObjectURL(file);
             a.download = fileName;
+            document.body.appendChild(a);
             a.click();
-            URL.revokeObjectURL(a.href);
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+            }, 100);
         }
 
         exportCSV(filename, type) {
             const results = this.getResultsObject(type);
-            let csvContent = "";
+            let csvContent = '\uFEFF'; // BOM para UTF-8
+            
+            csvContent += 'RESUMO GERAL\r\n';
+            csvContent += 'Metrica,Valor\r\n';
+            
             const summary = results.resumoGeral;
-            csvContent += "Metrica,Valor\r\n";
             Object.entries(summary).forEach(([key, value]) => {
-                csvContent += `${key},${value}\r\n`;
+                csvContent += `"${key}","${value}"\r\n`;
             });
 
             if (type === 'detailed') {
-                csvContent += "\r\nLog Detalhado\r\n";
-                const headers = ["Stage", "StimulusID", "CorrectPosition", "ClickedPosition", "IsCorrect", "StageAttempt", "ItemAttempt", "ResponseTime_ms"];
-                csvContent += headers.join(",") + "\r\n";
+                csvContent += '\r\nDESEMPENHO POR ESTAGIO\r\n';
+                csvContent += 'Estagio,Erros,Acertos 1a Tentativa,Total Padroes,Completo\r\n';
+                
+                Object.entries(results.desempenhoPorEstagio).forEach(([stage, data]) => {
+                    csvContent += `"${stage}",${data.erros},${data.acertos1aTentativa_Item},${data.totalPadroes},${data.completo ? 'Sim' : 'Nao'}\r\n`;
+                });
+
+                csvContent += '\r\nLOG DETALHADO\r\n';
+                const headers = ['Stage', 'StimulusID', 'CorrectPosition', 'ClickedPosition', 'IsCorrect', 'StageAttempt', 'ItemAttempt', 'ResponseTime_ms'];
+                csvContent += headers.join(',') + '\r\n';
+                
                 results.logDetalhado.forEach(log => {
-                    const row = [log.stage, log.stimulusId, log.correctPosition, log.clickedPosition, log.isCorrect, log.stageAttempt, log.itemAttempt, log.responseTime];
-                    csvContent += row.join(",") + "\r\n";
+                    const row = [
+                        log.stage,
+                        `"${log.stimulusId}"`,
+                        log.correctPosition,
+                        log.clickedPosition,
+                        log.isCorrect ? 'Sim' : 'Nao',
+                        log.stageAttempt,
+                        log.itemAttempt,
+                        log.responseTime
+                    ];
+                    csvContent += row.join(',') + '\r\n';
                 });
             }
+            
             this.downloadFile(csvContent, `${filename}.csv`, 'text/csv;charset=utf-8;');
         }
-        
+
         exportJSON(filename, type) {
             const results = this.getResultsObject(type);
             const jsonContent = JSON.stringify(results, null, 2);
@@ -611,54 +838,115 @@
         }
 
         exportPDF(filename, type) {
-            if (typeof window.jspdf === 'undefined' || typeof window.jspdf.autoTable === 'undefined') {
-                return alert("Erro: A biblioteca para gerar PDF (autoTable) não foi carregada.");
+            if (typeof window.jspdf === 'undefined') {
+                alert('Biblioteca PDF não carregada. Por favor, recarregue a página.');
+                return;
             }
-            const { jsPDF, autoTable } = window.jspdf;
+
+            const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             const results = this.getResultsObject(type);
             const summary = results.resumoGeral;
 
             doc.setFontSize(18);
-            doc.text("Relatório do Teste de Memória Associativa (PAL)", 14, 22);
+            doc.text('Teste de Memoria Associativa (PAL)', 14, 22);
+            
             doc.setFontSize(11);
             doc.setTextColor(100);
-            doc.text(`Data: ${new Date().toLocaleString('pt-BR')}`, 14, 28);
-            doc.text(`ID do Sujeito: ${summary.subjectID}`, 14, 34);
-            
-            autoTable(doc, {
-                startY: 40,
-                head: [['Métrica', 'Valor']],
-                body: Object.entries(summary).map(([key, value]) => [key.replace(/_/g, ' '), value]),
-                theme: 'striped'
-            });
+            doc.text(`Data/Hora: ${summary.dataHora}`, 14, 30);
+            doc.text(`ID do Sujeito: ${summary.subjectID}`, 14, 36);
 
-            if (type === 'detailed') {
-                doc.addPage();
-                doc.setFontSize(16);
-                doc.text("Log Detalhado de Tentativas", 14, 22);
-                const head = [['Estágio', 'Estímulo', 'Pos. Correta', 'Pos. Clicada', 'Correto?', 'Tent. Estágio', 'Tent. Item', 'Tempo (ms)']];
-                const body = results.logDetalhado.map(log => [
-                    log.stage, log.stimulusId, log.correctPosition, log.clickedPosition, 
-                    log.isCorrect ? 'Sim' : 'Não', log.stageAttempt, log.itemAttempt, log.responseTime
-                ]);
-                autoTable(doc, { startY: 30, head: head, body: body, theme: 'grid' });
+            if (typeof doc.autoTable === 'function') {
+                doc.autoTable({
+                    startY: 44,
+                    head: [['Metrica', 'Valor']],
+                    body: Object.entries(summary)
+                        .filter(([key]) => key !== 'subjectID' && key !== 'dataHora')
+                        .map(([key, value]) => [key.replace(/_/g, ' '), value]),
+                    theme: 'striped',
+                    headStyles: { fillColor: [59, 130, 246] },
+                    margin: { top: 44 }
+                });
+
+                if (type === 'detailed') {
+                    doc.addPage();
+                    doc.setFontSize(16);
+                    doc.text('Desempenho por Estagio', 14, 22);
+
+                    const stageBody = Object.entries(results.desempenhoPorEstagio).map(([stage, data]) => [
+                        stage,
+                        data.erros,
+                        `${data.acertos1aTentativa_Item}/${data.totalPadroes}`,
+                        data.completo ? 'Sim' : 'Nao'
+                    ]);
+
+                    doc.autoTable({
+                        startY: 30,
+                        head: [['Estagio', 'Erros', 'Acertos 1a Tent.', 'Completo']],
+                        body: stageBody,
+                        theme: 'grid',
+                        headStyles: { fillColor: [34, 197, 94] }
+                    });
+
+                    doc.addPage();
+                    doc.setFontSize(16);
+                    doc.text('Log Detalhado de Tentativas', 14, 22);
+
+                    const logBody = results.logDetalhado.map(log => [
+                        log.stage,
+                        log.stimulusId,
+                        log.correctPosition,
+                        log.clickedPosition,
+                        log.isCorrect ? 'Sim' : 'Nao',
+                        log.stageAttempt,
+                        log.itemAttempt,
+                        log.responseTime
+                    ]);
+
+                    doc.autoTable({
+                        startY: 30,
+                        head: [['Est.', 'Estim.', 'Pos.Corr', 'Pos.Clic', 'Corr?', 'Tent.Est', 'Tent.Item', 'Tempo(ms)']],
+                        body: logBody,
+                        theme: 'grid',
+                        headStyles: { fillColor: [239, 68, 68] },
+                        styles: { fontSize: 8 }
+                    });
+                }
+            } else {
+                let yPos = 50;
+                doc.setFontSize(12);
+                doc.text('RESUMO:', 14, yPos);
+                yPos += 8;
+                
+                Object.entries(summary).forEach(([key, value]) => {
+                    if (key !== 'subjectID' && key !== 'dataHora') {
+                        doc.setFontSize(10);
+                        doc.text(`${key}: ${value}`, 14, yPos);
+                        yPos += 6;
+                    }
+                });
             }
+
             doc.save(`${filename}.pdf`);
         }
-        
+
         shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
             }
-            return array;
+            return shuffled;
         }
 
-        delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+        delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
     }
 
-    document.addEventListener('DOMContentLoaded', () => { new PALTest(); });
+    document.addEventListener('DOMContentLoaded', () => {
+        new PALTest();
+    });
     </script>
 </body>
 </html>
