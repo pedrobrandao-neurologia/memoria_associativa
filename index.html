@@ -191,6 +191,14 @@
             height: 100%;
         }
 
+        /* Garante que a figura-alvo realmente suma ao receber a classe .hidden.
+           O seletor de ID (#recall-stimulus) tem especificidade maior que a
+           classe utilitária .hidden, então sem esta regra o display:flex acima
+           manteria a figura fixa no centro mesmo após a resposta. */
+        #recall-stimulus.hidden {
+            display: none !important;
+        }
+
         #message-area {
             min-height: 3.25rem;
             display: flex;
@@ -265,20 +273,24 @@
                     </div>
                 </div>
 
-                <div class="max-w-md mx-auto mb-6 flex items-center justify-center gap-2">
+                <div class="max-w-md mx-auto mb-3 flex items-center justify-center gap-2">
                     <input type="checkbox" id="practice-toggle" class="w-4 h-4 accent-blue-600" checked>
                     <label for="practice-toggle" class="text-sm text-gray-300">Incluir tentativa de familiarização (recomendado)</label>
                 </div>
 
+                <div class="max-w-md mx-auto mb-6 flex items-center justify-center gap-2">
+                    <input type="checkbox" id="sound-toggle" class="w-4 h-4 accent-blue-600" checked>
+                    <label for="sound-toggle" class="text-sm text-gray-300">Feedback sonoro (som de acerto e erro)</label>
+                </div>
+
                 <div class="text-left max-w-2xl mx-auto space-y-3 text-gray-300 mb-8 text-sm md:text-base">
-                    <p class="font-semibold text-white">Instruções:</p>
+                    <p class="font-semibold text-white">Como funciona — 3 passos:</p>
                     <ol class="list-decimal list-inside space-y-2 ml-2">
-                        <li>No início de cada fase, as caixas se abrem uma a uma, revelando um padrão em seu interior.</li>
-                        <li>Memorize qual padrão pertence a qual caixa.</li>
-                        <li>Em seguida, cada padrão aparece no centro da tela, um de cada vez.</li>
-                        <li>Toque na caixa onde aquele padrão estava. Se errar, a posição correta é mostrada e a sequência inteira é reapresentada.</li>
-                        <li>A fase só é vencida quando você acerta <strong>todos</strong> os padrões sem nenhum erro.</li>
+                        <li><strong>Observe:</strong> as caixas abrem uma a uma e mostram uma figura. Memorize onde cada figura aparece.</li>
+                        <li><strong>Recorde:</strong> depois, cada figura aparece no centro. Toque na caixa onde ela estava.</li>
+                        <li><strong>Acerte tudo:</strong> se errar, a posição certa é mostrada e a fase recomeça. A fase termina quando você acerta <strong>todas</strong> as figuras sem erro.</li>
                     </ol>
+                    <p class="text-gray-400 text-xs md:text-sm">As mensagens na tela guiam você em cada passo. As fases ficam um pouco mais difíceis a cada etapa.</p>
                 </div>
 
                 <button
@@ -420,6 +432,7 @@
             this.ui = {
                 subjectIdInput: document.getElementById('subject-id'),
                 practiceToggle: document.getElementById('practice-toggle'),
+                soundToggle: document.getElementById('sound-toggle'),
                 startScreen: document.getElementById('start-screen'),
                 testScreen: document.getElementById('test-screen'),
                 resultsScreen: document.getElementById('results-screen'),
@@ -441,6 +454,7 @@
                 progressAttempt: document.getElementById('progress-attempt'),
             };
 
+            this.audioCtx = null;
             this.state = {};
             this.resetState();
             this.bindEvents();
@@ -455,12 +469,52 @@
             document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
         }
 
+        /* ===== Feedback sonoro (Web Audio API — sem arquivos externos, funciona offline) ===== */
+        initAudio() {
+            if (this.audioCtx) {
+                if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+                return;
+            }
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                this.audioCtx = AC ? new AC() : null;
+            } catch (e) {
+                this.audioCtx = null;
+            }
+        }
+
+        playFeedbackSound(kind) {
+            if (!this.state.soundOn || !this.audioCtx) return;
+            const ctx = this.audioCtx;
+            if (ctx.state === 'suspended') ctx.resume();
+            const now = ctx.currentTime;
+            // Acerto: dois tons ascendentes e suaves (sine). Erro: zumbido grave descendente (square).
+            const notes = kind === 'correct'
+                ? [{ f: 587.33, t: 0.00, type: 'sine' }, { f: 880.00, t: 0.11, type: 'sine' }]
+                : [{ f: 196.00, t: 0.00, type: 'square' }, { f: 130.81, t: 0.13, type: 'square' }];
+            const vol = kind === 'correct' ? 0.18 : 0.14;
+            notes.forEach(n => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = n.type;
+                osc.frequency.value = n.f;
+                gain.gain.setValueAtTime(0.0001, now + n.t);
+                gain.gain.exponentialRampToValueAtTime(vol, now + n.t + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + n.t + 0.18);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now + n.t);
+                osc.stop(now + n.t + 0.2);
+            });
+        }
+
         resetState() {
             this.state = {
                 modeKey: 'completo',
                 mode: this.MODES.completo,
                 timing: this.TIMING.completo,
                 usePractice: true,
+                soundOn: true,
                 currentStageIndex: 0,
                 currentBoxCount: 8,
                 isRecallPhase: false,
@@ -551,12 +605,17 @@
 
             const modeKey = (document.querySelector('input[name="mode"]:checked') || {}).value || 'completo';
             const usePractice = this.ui.practiceToggle.checked;
+            const soundOn = this.ui.soundToggle.checked;
+
+            // Inicializa o áudio neste gesto do usuário (exigência dos navegadores)
+            if (soundOn) this.initAudio();
 
             this.resetState();
             this.state.modeKey = modeKey;
             this.state.mode = this.MODES[modeKey];
             this.state.timing = this.TIMING[modeKey];
             this.state.usePractice = usePractice;
+            this.state.soundOn = soundOn;
             this.state.results.subjectID = subjectID;
             this.state.results.mode = this.state.mode.label;
             this.initStageRecords();
@@ -644,8 +703,8 @@
                 if (this.state.aborted) return;
                 if (!completed) {
                     // Descontinuação: não avança para estágios mais difíceis
-                    this.ui.messageArea.textContent = 'Número máximo de tentativas atingido.';
-                    await this.delay(2000);
+                    this.ui.messageArea.textContent = 'Tudo bem — vamos encerrar por aqui. Veja seu resultado.';
+                    await this.delay(2200);
                     break;
                 }
             }
@@ -658,8 +717,8 @@
             this.ui.progressAttempt.textContent = '';
             this.setupGrid(cfg.boxes);
 
-            this.ui.messageArea.textContent = 'Vamos praticar — esta fase não conta para o resultado.';
-            await this.delay(1800);
+            this.ui.messageArea.textContent = 'Vamos praticar primeiro — esta fase não conta no resultado.';
+            await this.delay(2000);
             if (this.state.aborted) return;
 
             const patterns = this.buildPatterns(cfg.patterns, cfg.boxes);
@@ -670,10 +729,10 @@
                 const res = await this.runRecallPhase(patterns, { attempt, record: false, stageIndex: -1 });
                 if (this.state.aborted) return;
                 if (res.success) break;
-                this.ui.messageArea.textContent = 'Vamos tentar de novo.';
+                this.ui.messageArea.textContent = 'Sem problemas — vamos praticar de novo.';
                 await this.delay(1500);
             }
-            this.ui.messageArea.textContent = 'Ótimo! Agora começa o teste.';
+            this.ui.messageArea.textContent = 'Ótimo! Agora começa o teste de verdade.';
             await this.delay(1800);
         }
 
@@ -687,8 +746,8 @@
             const patterns = this.buildPatterns(stageCfg.patterns, stageCfg.boxes);
 
             for (let attempt = 1; attempt <= this.state.mode.maxAttempts; attempt++) {
-                this.ui.progressStage.textContent = `Estágio ${stageIndex + 1}/${this.state.mode.stages.length} · ${stageCfg.patterns} padrões`;
-                this.ui.progressAttempt.textContent = `Tentativa ${attempt}/${this.state.mode.maxAttempts}`;
+                this.ui.progressStage.textContent = `Fase ${stageIndex + 1} de ${this.state.mode.stages.length} · ${stageCfg.patterns} figuras`;
+                this.ui.progressAttempt.textContent = `Tentativa ${attempt} de ${this.state.mode.maxAttempts}`;
 
                 await this.runPresentationPhase(patterns, `Tentativa ${attempt}`);
                 if (this.state.aborted) return false;
@@ -704,13 +763,13 @@
                     if (attempt === 1) {
                         this.state.results.maxStageFirstAttempt = stageCfg.patterns;
                     }
-                    this.ui.messageArea.textContent = 'Estágio concluído!';
+                    this.ui.messageArea.textContent = 'Muito bem! Fase concluída. ✓';
                     await this.delay(1800);
                     return true;
                 }
 
                 if (attempt < this.state.mode.maxAttempts) {
-                    this.ui.messageArea.textContent = `Vamos tentar novamente (tentativa ${attempt + 1} de ${this.state.mode.maxAttempts}).`;
+                    this.ui.messageArea.textContent = 'Quase! Vamos repetir esta fase do começo.';
                     await this.delay(1800);
                 }
             }
@@ -738,7 +797,7 @@
 
         async runPresentationPhase(patterns, attemptLabel) {
             this.ui.recallStimulus.classList.add('hidden');
-            this.ui.messageArea.textContent = `Memorize as posições... (${attemptLabel})`;
+            this.ui.messageArea.textContent = 'Observe: memorize onde cada figura aparece.';
             await this.delay(this.state.timing.preStageMs);
             if (this.state.aborted) return;
 
@@ -802,7 +861,7 @@
                         rec.firstAttemptSuccesses++;
                         this.state.results.PALFAMS++;
                     }
-                    await this.handleCorrectVisuals(this.ui.gridContainer.children[clickedPosition]);
+                    await this.handleCorrectVisuals(this.ui.gridContainer.children[clickedPosition], target);
                 } else {
                     hadError = true;
                     if (options.record) {
@@ -810,7 +869,7 @@
                         rec.errors++;
                         this.state.results.totalErrors++;
                     }
-                    await this.handleIncorrectVisuals(clickedPosition, target.position);
+                    await this.handleIncorrectVisuals(clickedPosition, target);
                     if (this.state.aborted) { this.state.isRecallPhase = false; return { success: false }; }
                 }
             }
@@ -820,7 +879,7 @@
         }
 
         showRecallStimulus(pattern) {
-            this.ui.messageArea.textContent = 'Onde estava este padrão?';
+            this.ui.messageArea.textContent = 'Toque na caixa onde esta figura estava.';
             this.ui.recallStimulus.innerHTML = pattern.stimulusSVG;
             this.ui.recallStimulus.classList.remove('hidden');
             this.state.responseStartTime = Date.now();
@@ -833,24 +892,50 @@
             resolve(clickedPosition);
         }
 
-        async handleCorrectVisuals(card) {
-            this.ui.messageArea.textContent = 'Correto!';
+        async handleCorrectVisuals(card, target) {
+            this.ui.messageArea.textContent = 'Acertou! ✓';
+            this.playFeedbackSound('correct');
+            this.revealFigureOn(card, target.stimulusSVG);   // confirma mostrando a figura no lugar
             card.classList.add('pulse-success');
-            await this.delay(900);
+            await this.delay(950);
             card.classList.remove('pulse-success');
+            this.hideFigureOn(card);
         }
 
-        /* Feedback corretivo: chacoalha a caixa errada e revela a posição correta (re-encoding) */
-        async handleIncorrectVisuals(clickedPosition, correctPosition) {
+        /* Feedback corretivo: chacoalha a caixa errada e revela a figura na posição certa (re-encoding) */
+        async handleIncorrectVisuals(clickedPosition, target) {
             const wrongCard = this.ui.gridContainer.children[clickedPosition];
-            const correctCard = this.ui.gridContainer.children[correctPosition];
-            this.ui.messageArea.textContent = 'Incorreto. A posição correta será mostrada.';
+            const correctCard = this.ui.gridContainer.children[target.position];
+            this.ui.messageArea.textContent = 'Ops! A figura estava nesta caixa.';
+            this.playFeedbackSound('error');
 
             if (wrongCard) wrongCard.classList.add('shake');
-            if (correctCard) correctCard.classList.add('reveal-correct');
-            await this.delay(1100);
+            if (correctCard) {
+                correctCard.classList.add('reveal-correct');
+                this.revealFigureOn(correctCard, target.stimulusSVG);
+            }
+            await this.delay(1300);
             if (wrongCard) wrongCard.classList.remove('shake');
-            if (correctCard) correctCard.classList.remove('reveal-correct');
+            if (correctCard) {
+                correctCard.classList.remove('reveal-correct');
+                this.hideFigureOn(correctCard);
+            }
+        }
+
+        /* Vira a caixa para mostrar a figura no seu lugar */
+        revealFigureOn(card, svg) {
+            if (!card) return;
+            const back = card.querySelector('.card-face-back');
+            if (back) back.innerHTML = svg;
+            card.offsetHeight; // reflow para garantir a transição
+            card.classList.add('is-flipped');
+        }
+
+        hideFigureOn(card) {
+            if (!card) return;
+            card.classList.remove('is-flipped');
+            const back = card.querySelector('.card-face-back');
+            if (back) setTimeout(() => { back.innerHTML = ''; }, 400);
         }
 
         /* =====================================================================
